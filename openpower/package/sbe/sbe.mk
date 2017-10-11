@@ -5,7 +5,7 @@
 ################################################################################
 
 SBE_VERSION ?= 374add4ab977460d1793ddcfa64548732c4cbe18
-SBE_SITE ?= $(call github,open-power,sbe,$(SBE_VERSION))
+SBE_SITE ?= $(call github,ibm-op-release,sbe,$(SBE_VERSION))
 
 SBE_LICENSE = Apache-2.0
 SBE_DEPENDENCIES = host-ppe42-gcc

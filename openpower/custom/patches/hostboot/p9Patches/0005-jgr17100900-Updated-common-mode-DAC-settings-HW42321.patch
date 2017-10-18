@@ -1,0 +1,71 @@
+From 5e30365026f2d8bab6274d176ce5c409f09d27b6 Mon Sep 17 00:00:00 2001
+From: John Rell <jgrell@us.ibm.com>
+Date: Mon, 9 Oct 2017 16:58:14 -0500
+Subject: [PATCH] jgr17100900 Updated common mode DAC settings HW423215
+
+Change-Id: I8835cb811f6bccdb5897848063db6c464f3ea740
+CQ: HW423215
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/48143
+Tested-by: FSP CI Jenkins <fsp-CI-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Kevin F. Reick <reick@us.ibm.com>
+Reviewed-by: Jennifer A. Stofer <stofer@us.ibm.com>
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/48336
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Hostboot CI <hostboot-ci+hostboot@us.ibm.com>
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/48414
+Reviewed-by: Hostboot Team <hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g0_scom.C | 8 ++++----
+ src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g1_scom.C | 8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g0_scom.C b/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g0_scom.C
+index 3c7900f..3b1ed61 100644
+--- a/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g0_scom.C
++++ b/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g0_scom.C
+@@ -2965,13 +2965,13 @@ fapi2::ReturnCode p9_xbus_g0_scom(const fapi2::Target<fapi2::TARGET_TYPE_XBUS>&
+ 
+             if ((l_TGT2_ATTR_CHIP_EC_FEATURE_HW393297 == literal_0))
+             {
+-                constexpr auto l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_ON = 0x1;
+-                l_scom_buffer.insert<48, 1, 63, uint64_t>(l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_ON );
++                constexpr auto l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_ON = 0x1;
++                l_scom_buffer.insert<49, 1, 63, uint64_t>(l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_ON );
+             }
+             else if (( true ))
+             {
+-                constexpr auto l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_OFF = 0x0;
+-                l_scom_buffer.insert<48, 1, 63, uint64_t>(l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_OFF );
++                constexpr auto l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_OFF = 0x0;
++                l_scom_buffer.insert<49, 1, 63, uint64_t>(l_IOF1_RX_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_OFF );
+             }
+ 
+             FAPI_TRY(fapi2::putScom(TGT0, 0x8008000006010c3full, l_scom_buffer));
+diff --git a/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g1_scom.C b/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g1_scom.C
+index 9249e8d..9ab8bd4 100644
+--- a/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g1_scom.C
++++ b/src/import/chips/p9/procedures/hwp/initfiles/p9_xbus_g1_scom.C
+@@ -2966,13 +2966,13 @@ fapi2::ReturnCode p9_xbus_g1_scom(const fapi2::Target<fapi2::TARGET_TYPE_XBUS>&
+ 
+             if ((l_TGT2_ATTR_CHIP_EC_FEATURE_HW393297 == literal_0))
+             {
+-                constexpr auto l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_ON = 0x1;
+-                l_scom_buffer.insert<48, 1, 63, uint64_t>(l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_ON );
++                constexpr auto l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_ON = 0x1;
++                l_scom_buffer.insert<49, 1, 63, uint64_t>(l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_ON );
+             }
+             else if (( true ))
+             {
+-                constexpr auto l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_OFF = 0x0;
+-                l_scom_buffer.insert<48, 1, 63, uint64_t>(l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_0_OFF );
++                constexpr auto l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_OFF = 0x0;
++                l_scom_buffer.insert<49, 1, 63, uint64_t>(l_IOF1_RX_RX1_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_1_OFF );
+             }
+ 
+             FAPI_TRY(fapi2::putScom(TGT0, 0x8008002006010c3full, l_scom_buffer));
+-- 
+2.9.2.windows.1
+

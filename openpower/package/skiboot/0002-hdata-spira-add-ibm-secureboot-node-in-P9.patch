@@ -1,0 +1,125 @@
+From 7770637aac9c96fbdbca2133f3830046d1a800f7 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:25 -0200
+Subject: [PATCH 02/19] hdata/spira: add ibm, secureboot node in P9
+
+In P9, skiboot builds the device tree from the HDAT. These are the
+"ibm,secureboot" node changes compared to P8:
+
+- The Container-Verification-Code (CVC), a.k.a. ROM code, is no longer
+  stored in a secure ROM with static address. In P9, it is stored in a
+  hostboot reserved memory and each service provided also has a version,
+  not only an offset.
+
+- The hash-algo property is not provided via HDAT, instead it provides
+  the hw-key-hash-size, which is indeed the information required by the
+  CVC to verify containers.
+
+Although the CVC location has changed and the hash-algo is not provided
+in the HDAT, the "ibm,secureboot" compatible property doesn't need to be
+bumped to "ibm,secureboot-v2" in P9. For now we can initialize the CVC
+early during the HDAT parsing and emulate the hash-algo from the
+hw-key-hash-size. The "ibm,secureboot" node update can be postponed,
+even because currently only skiboot consumes it.
+
+This parses the iplparams_sysparams HDAT structure and creates the
+"ibm,secureboot" in P9.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ hdata/spira.c | 39 +++++++++++++++++++++++++++++++++++++++
+ hdata/spira.h | 14 ++++++++------
+ 2 files changed, 47 insertions(+), 6 deletions(-)
+
+diff --git a/hdata/spira.c b/hdata/spira.c
+index 936fadcf52f3..33926eda4d41 100644
+--- a/hdata/spira.c
++++ b/hdata/spira.c
+@@ -933,6 +933,42 @@ static void add_nmmu(void)
+ 	}
+ }
+ 
++static void dt_init_secureboot_node(const struct iplparams_sysparams *sysparams)
++{
++	struct dt_node *node;
++	u16 sys_sec_setting;
++	u16 hw_key_hash_size;
++
++	node = dt_new(dt_root, "ibm,secureboot");
++	assert(node);
++
++	dt_add_property_string(node, "compatible", "ibm,secureboot-v1");
++
++	sys_sec_setting = be16_to_cpu(sysparams->sys_sec_setting);
++	if (sys_sec_setting & SEC_CONTAINER_SIG_CHECKING)
++		dt_add_property(node, "secure-enabled", NULL, 0);
++	if (sys_sec_setting & SEC_HASHES_EXTENDED_TO_TPM)
++		dt_add_property(node, "trusted-enabled", NULL, 0);
++
++	hw_key_hash_size = be16_to_cpu(sysparams->hw_key_hash_size);
++
++	/*
++	 * FIXME: replace hash-algo by the hw-key-hash-size property when
++	 * compatible is bumped to ibm,secureboot-v2
++	 */
++	if (hw_key_hash_size == 64) {
++		dt_add_property_string(node, "hash-algo", "sha512");
++		dt_add_property(node, "hw-key-hash", sysparams->hw_key_hash,
++				hw_key_hash_size);
++	} else {
++		prlog(PR_ERR, "TPMREL: hw_key_hash_size=%d not supported\n",
++		      hw_key_hash_size);
++	}
++
++	if (be16_to_cpu(sysparams->sys_attributes) & SYS_ATTR_MULTIPLE_TPM)
++		prlog(PR_WARNING, "Multiple TPM set, but not supported\n");
++}
++
+ static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
+ {
+ 	const struct iplparams_sysparams *p;
+@@ -1019,6 +1055,9 @@ static void add_iplparams_sys_params(const void *iplp, struct dt_node *node)
+ 	sys_attributes = be32_to_cpu(p->sys_attributes);
+ 	if (sys_attributes & SYS_ATTR_RISK_LEVEL)
+ 		dt_add_property(node, "elevated-risk-level", NULL, 0);
++
++	if (version >= 0x60)
++		dt_init_secureboot_node(p);
+ }
+ 
+ static void add_iplparams_ipl_params(const void *iplp, struct dt_node *node)
+diff --git a/hdata/spira.h b/hdata/spira.h
+index 190afad1b9d9..a9f1313f2c0a 100644
+--- a/hdata/spira.h
++++ b/hdata/spira.h
+@@ -355,6 +355,7 @@ struct iplparams_sysparams {
+ 	__be32		abc_bus_speed;
+ 	__be32		wxyz_bus_speed;
+ 	__be32		sys_eco_mode;
++#define SYS_ATTR_MULTIPLE_TPM PPC_BIT32(0)
+ #define SYS_ATTR_RISK_LEVEL PPC_BIT32(3)
+ 	__be32		sys_attributes;
+ 	__be32		mem_scrubbing;
+@@ -369,12 +370,13 @@ struct iplparams_sysparams {
+ 	uint8_t		split_core_mode;	/* >= 0x5c */
+ 	uint8_t		reserved[3];
+ 	uint8_t		sys_vendor[64];		/* >= 0x5f */
+-	/* >= 0x60 */
+-	__be16		sys_sec_setting;
+-	__be16		tpm_config_bit;
+-	__be16		tpm_drawer;
+-	__be16		reserved2;
+-	uint8_t		hw_key_hash[64];
++#define SEC_CONTAINER_SIG_CHECKING PPC_BIT16(0)
++#define SEC_HASHES_EXTENDED_TO_TPM PPC_BIT16(1)
++	__be16		sys_sec_setting;	/* >= 0x60 */
++	__be16		tpm_config_bit;		/* >= 0x60 */
++	__be16		tpm_drawer;		/* >= 0x60 */
++	__be16		hw_key_hash_size;	/* >= 0x60 */
++	uint8_t		hw_key_hash[64];	/* >= 0x60 */
+ 	uint8_t		sys_family_str[64];	/* vendor,name */
+ 	uint8_t		sys_type_str[64];	/* vendor,type */
+ } __packed;
+-- 
+2.13.6
+

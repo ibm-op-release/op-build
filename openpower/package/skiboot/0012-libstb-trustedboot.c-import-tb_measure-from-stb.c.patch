@@ -1,0 +1,199 @@
+From 3cbf9976350e319a8104f359efa5f6d56d0919ea Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:35 -0200
+Subject: [PATCH 12/19] libstb/trustedboot.c: import tb_measure() from stb.c
+
+This imports tb_measure() from stb.c, but now it calls the added CVC
+sha512 wrapper to calculate the sha512 hash of the firmware image provided.
+
+Another difference is that it no longer checks if the container payload hash
+calculated at boot time matches with the hash found in the container header.
+A few reasons:
+	- If the system admin wants the container header to be
+	  checked/validated, the secure boot jumper must be set. Otherwise,
+	  the container header information may not be reliable.
+	- The container layout is expected to change over time. Skiboot
+	  would need to maintain a parser for each container layout
+	  change.
+	- Skiboot could be checking the hash against a container version that
+	  is not supported by the Container-Verification-Code (CVC).
+
+In trustedboot.c, the tb_measure() is renamed to trustedboot_measure().
+The tb_measure() calls are updated in a subsequent patch.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ libstb/trustedboot.c | 117 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ libstb/trustedboot.h |  18 ++++++++
+ 2 files changed, 135 insertions(+)
+
+diff --git a/libstb/trustedboot.c b/libstb/trustedboot.c
+index e97405fdc0d3..39310e475b12 100644
+--- a/libstb/trustedboot.c
++++ b/libstb/trustedboot.c
+@@ -21,12 +21,42 @@
+ #include <skiboot.h>
+ #include <device.h>
+ #include <nvram.h>
++#include <opal-api.h>
+ #include "trustedboot.h"
++#include "container.h"
+ #include "tpm_chip.h"
+ #include "cvc.h"
+ 
++/* For debugging only */
++//#define STB_DEBUG
++
+ static bool trusted_mode = false;
+ 
++/*
++ * This maps a PCR for each resource we can measure. The PCR number is
++ * mapped according to the TCG PC Client Platform Firmware Profile
++ * specification, Revision 00.21
++ * Only resources included in this whitelist can be measured.
++ */
++static struct {
++	enum resource_id id;
++	TPM_Pcr pcr;
++} resources[] = {
++	{ RESOURCE_ID_IMA_CATALOG, PCR_2 },
++	{ RESOURCE_ID_KERNEL, PCR_4 },
++	{ RESOURCE_ID_CAPP,   PCR_2 },
++};
++
++static TPM_Pcr map_pcr(enum resource_id id)
++{
++	int i;
++	for (i = 0; i < ARRAY_SIZE(resources); i++) {
++		if (resources[i].id == id)
++			return resources[i].pcr;
++	}
++	return -1;
++}
++
+ void trustedboot_init(void)
+ {
+ 	struct dt_node *node;
+@@ -74,3 +104,90 @@ void trustedboot_init(void)
+ 		 */
+ 		prlog(PR_ERR, "tpm init FAILED\n");
+ }
++
++int trustedboot_measure(enum resource_id id, void *buf, size_t len)
++{
++	uint8_t digest[SHA512_DIGEST_LENGTH];
++	void *buf_aux;
++	size_t len_aux;
++	const char *name;
++	TPM_Pcr pcr;
++	int rc = -1;
++
++	if (!trusted_mode)
++		return 1;
++
++	name = flash_map_resource_name(id);
++	if (!name) {
++		/**
++		 * @fwts-label ResourceNotMeasuredUnknown
++		 * @fwts-advice This is a bug in the trustedboot_measure()
++		 * caller, which is passing an unknown resource_id.
++		 */
++		prlog(PR_ERR, "resource NOT MEASURED, resource_id=%d unknown\n", id);
++		return -1;
++	}
++	pcr = map_pcr(id);
++	if (pcr == -1) {
++		/**
++		 * @fwts-label ResourceNotMappedToPCR
++		 * @fwts-advice This is a bug. The resource cannot be measured
++		 * because it is not mapped to a PCR in the resources[] array.
++		 */
++		prlog(PR_ERR, "%s NOT MEASURED, it's not mapped to a PCR\n", name);
++		return -1;
++	}
++	if (!buf) {
++		/**
++		 * @fwts-label ResourceNotMeasuredNull
++		 * @fwts-advice This is a bug. The trustedboot_measure() caller
++		 * provided a NULL container.
++		 */
++		prlog(PR_ERR, "%s NOT MEASURED, it's null\n", name);
++		return -1;
++	}
++	if (stb_is_container(buf, len)) {
++		buf_aux = buf + SECURE_BOOT_HEADERS_SIZE;
++		len_aux = len - SECURE_BOOT_HEADERS_SIZE;
++	} else {
++		buf_aux = buf;
++		len_aux = len;
++	}
++
++	rc = call_cvc_sha512(buf_aux, len_aux, digest, SHA512_DIGEST_LENGTH);
++
++	if (rc == OPAL_SUCCESS) {
++		prlog(PR_INFO, "%s hash calculated\n", name);
++	} else if (rc == OPAL_RESOURCE) {
++		prlog(PR_ERR, "%s NOT MEASURED, CVC-sha512 service not "
++		      "available\n", name);
++		return -1;
++	} else if (rc == OPAL_PARAMETER) {
++		prlog(PR_ERR, "%s NOT MEASURED, invalid param. buf=%p, "
++		      "len=%zd, digest=%p\n", name, buf_aux,
++		      len_aux, digest);
++		return -1;
++	} else if (rc == OPAL_UNSUPPORTED) {
++		prlog(PR_ERR, "%s NOT MEASURED, CVC-sha512 version %d "
++		      "not supported\n", name,
++		      cvc_get_service_version(CVC_SHA512_SERVICE));
++		return -1;
++	} else {
++		prlog(PR_ERR, "%s NOT MEASURED, unknown CVC-sha512 error. "
++		      "rc=%d\n", name, rc);
++		return -1;
++	}
++
++#ifdef STB_DEBUG
++	stb_print_data(digest, TPM_ALG_SHA256_SIZE);
++#endif
++	/*
++	 * Extend the given PCR number in both sha256 and sha1 banks with the
++	 * sha512 hash calculated. The hash is truncated accordingly to fit the
++	 * PCR.
++	 */
++	return tpm_extendl(pcr,
++			   TPM_ALG_SHA256, digest, TPM_ALG_SHA256_SIZE,
++			   TPM_ALG_SHA1,   digest, TPM_ALG_SHA1_SIZE,
++			   EV_ACTION, name);
++}
+diff --git a/libstb/trustedboot.h b/libstb/trustedboot.h
+index 459751443be3..bd5ac91c7248 100644
+--- a/libstb/trustedboot.h
++++ b/libstb/trustedboot.h
+@@ -17,6 +17,24 @@
+ #ifndef __TRUSTEDBOOT_H
+ #define __TRUSTEDBOOT_H
+ 
++#include <platform.h>
++
+ void trustedboot_init(void);
+ 
++/**
++ * trustedboot_measure - measure a resource
++ * @id    : resource id
++ * @buf   : data to be measured
++ * @len   : buf length
++ *
++ * This measures a resource downloaded from PNOR if trusted mode is on. That is,
++ * an EV_ACTION event is recorded in the event log for the mapped PCR, and the
++ * the sha1 and sha256 measurements are extended in the mapped PCR.
++ *
++ * For more information please refer to 'doc/stb.rst'
++ *
++ * returns: 0 or an error as defined in status_codes.h
++ */
++int trustedboot_measure(enum resource_id id, void *buf, size_t len);
++
+ #endif /* __TRUSTEDBOOT_H */
+-- 
+2.13.6
+

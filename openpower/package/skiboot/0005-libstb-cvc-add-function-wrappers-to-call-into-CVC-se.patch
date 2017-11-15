@@ -1,0 +1,244 @@
+From e7c63bb7571f20fabf4fe42cc03624115268a4cf Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:28 -0200
+Subject: [PATCH 05/19] libstb/cvc: add function wrappers to call into CVC
+ services
+
+Currently, the Container-Verification-Code (CVC) exposes two services:
+CVC-verify and CVC-sha512. Each service has a version and an offset.
+
+This adds function wrappers to call into the version 1 of each CVC
+service. Part of the code was imported from libstb/drivers/romcode.c,
+functions romcode_sha512() and romcode_verify().
+
+These function wrappers can also be used to export the CVC services
+to linux as OPAL runtime services, if necessary.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ asm/Makefile.inc                 |  2 +-
+ asm/{rom_entry.S => cvc_entry.S} | 10 +++---
+ libstb/cvc.c                     | 73 ++++++++++++++++++++++++++++++++++++++++
+ libstb/cvc.h                     | 33 ++++++++++++++++++
+ libstb/drivers/romcode.c         | 13 ++++---
+ 5 files changed, 117 insertions(+), 14 deletions(-)
+ rename asm/{rom_entry.S => cvc_entry.S} (91%)
+
+diff --git a/asm/Makefile.inc b/asm/Makefile.inc
+index 2e678fd86db0..ccd73d413ee2 100644
+--- a/asm/Makefile.inc
++++ b/asm/Makefile.inc
+@@ -1,7 +1,7 @@
+ # -*-Makefile-*-
+ 
+ SUBDIRS += asm 
+-ASM_OBJS = head.o lock.o misc.o kernel-wrapper.o rom_entry.o
++ASM_OBJS = head.o lock.o misc.o kernel-wrapper.o cvc_entry.o
+ ASM=asm/built-in.o
+ 
+ # Add extra dependency to the kernel wrapper
+diff --git a/asm/rom_entry.S b/asm/cvc_entry.S
+similarity index 91%
+rename from asm/rom_entry.S
+rename to asm/cvc_entry.S
+index 26d1b967c09e..75fdffd6a15a 100644
+--- a/asm/rom_entry.S
++++ b/asm/cvc_entry.S
+@@ -25,13 +25,12 @@
+ 
+ .section .text
+ 
+-.global call_rom_verify
+-.global call_rom_SHA512
++.global __cvc_verify_v1
++.global __cvc_sha512_v1
+ 
+-call_rom_verify:
+-call_rom_SHA512:
++__cvc_verify_v1:
++__cvc_sha512_v1:
+ 
+-call_rom_entry:
+     std %r2, 40(%r1)
+     mflr %r0
+     std %r0, 16(%r1)
+@@ -49,4 +48,3 @@ call_rom_entry:
+     ld %r0, 16(%r1)
+     mtlr %r0
+     blr
+-
+diff --git a/libstb/cvc.c b/libstb/cvc.c
+index ebf0ecf0385c..6ad13b365f56 100644
+--- a/libstb/cvc.c
++++ b/libstb/cvc.c
+@@ -19,8 +19,20 @@
+ #endif
+ 
+ #include <skiboot.h>
++#include <string.h>
++#include <opal-api.h>
++#include "container.h"
+ #include "cvc.h"
+ 
++/*
++ * Assembly interfaces to call into the Container Verification Code.
++ * func_ptr: CVC base address + offset
++ */
++ROM_response __cvc_verify_v1(void *func_ptr, ROM_container_raw *container,
++			     ROM_hw_params *params);
++void __cvc_sha512_v1(void *func_ptr, const uint8_t *data, size_t len,
++		     uint8_t *digest);
++
+ struct cvc_service {
+ 	int id;
+ 	uint64_t addr;    /* base_addr + offset */
+@@ -112,3 +124,64 @@ void cvc_service_register(uint32_t id, uint32_t version, uint32_t offset)
+ 	list_add_tail(&cvc->service_list, &service->link);
+ 	prlog(PR_INFO, "CVC-%s service found @0x%llx\n", name, service->addr);
+ }
++
++int call_cvc_sha512(const uint8_t *data, size_t data_len, uint8_t *digest,
++		   size_t digest_size)
++{
++	struct cvc_service *service;
++
++	if (!data || !digest || digest_size < SHA512_DIGEST_LENGTH)
++		return OPAL_PARAMETER;
++
++	if (data_len <= 0)
++		return OPAL_SUCCESS;
++
++	memset(digest, 0, SHA512_DIGEST_LENGTH);
++
++	service = cvc_find_service(CVC_SHA512_SERVICE);
++
++	if (!service)
++		return OPAL_RESOURCE;
++
++	if (service->version == 1)
++		__cvc_sha512_v1((void*) service->addr, data, data_len, digest);
++	else
++		return OPAL_UNSUPPORTED;
++
++	return OPAL_SUCCESS;
++}
++
++int call_cvc_verify(void *container, size_t len, const void *hw_key_hash,
++		    size_t hw_key_hash_size, uint64_t *log)
++{
++	ROM_hw_params hw_params;
++	ROM_response rc;
++	struct cvc_service *service;
++
++	if (!container || len < SECURE_BOOT_HEADERS_SIZE ||
++	    !hw_key_hash || hw_key_hash_size <= 0)
++		return OPAL_PARAMETER;
++
++	service = cvc_find_service(CVC_VERIFY_SERVICE);
++
++	if (!service)
++		return OPAL_RESOURCE;
++
++	memset(&hw_params, 0, sizeof(ROM_hw_params));
++	memcpy(&hw_params.hw_key_hash, hw_key_hash, hw_key_hash_size);
++
++	if (service->version == 1)
++		rc = __cvc_verify_v1((void*) service->addr,
++				   (ROM_container_raw*) container,
++				   &hw_params);
++	else
++		return OPAL_UNSUPPORTED;
++
++	if (log)
++		*log = hw_params.log;
++
++	if (rc != ROM_DONE)
++		return OPAL_PARTIAL;
++
++	return OPAL_SUCCESS;
++}
+diff --git a/libstb/cvc.h b/libstb/cvc.h
+index 8b5700c48f2d..b9e45b3b9f1e 100644
+--- a/libstb/cvc.h
++++ b/libstb/cvc.h
+@@ -26,4 +26,37 @@ enum cvc_service_id {
+ void cvc_register(uint64_t start_addr, uint64_t end_addr);
+ void cvc_service_register(uint32_t type, uint32_t version, uint32_t offset);
+ 
++/************************************************************************
++ * Wrappers for the services provided by the Container-Verification-Code
++ ************************************************************************/
++
++/*
++ * call_cvc_verify - Call the CVC-verify service to verify the container fetched
++ * from PNOR.
++ *
++ * @buf - buffer that has the firmware component to be verified
++ * @size - number of bytes allocated for @buf
++ * @hw_key_hash - hash of the three harware public keys trusted by the platform
++ * owner
++ * @hw_key_hash_size - number of bytes allocated for @hw_key_hash
++ * @log - hexadecimal returned by the CVC. In case of verification failure, it
++ * indicates what checking failed
++ *
++ */
++int call_cvc_verify(void *buf, size_t size, const void *hw_key_hash,
++		    size_t hw_key_hash_size, uint64_t *log);
++
++/*
++ * call_cvc_sha512 - Call the CVC-sha512 service to calculate a sha512 hash.
++ *
++ * @data - buffer that has data to be hashed
++ * @data_len - number of bytes from @data to be considered in the hash
++ * calculation
++ * @digest - buffer to store the calculated hash
++ * @digest_size - number of bytes allocated for @digest
++ *
++ */
++int call_cvc_sha512(const uint8_t *data, size_t data_len, uint8_t *digest,
++		    size_t digest_size);
++
+ #endif /* __CVC_H */
+diff --git a/libstb/drivers/romcode.c b/libstb/drivers/romcode.c
+index 94bd42c8fc5f..cc64c8b4d824 100644
+--- a/libstb/drivers/romcode.c
++++ b/libstb/drivers/romcode.c
+@@ -38,13 +38,12 @@ static void *romcode_base_addr = NULL;
+ static sha2_hash_t *hw_key_hash = NULL;
+ 
+ /*
+- * Assembly interfaces to call into ROM code.
+- * func_ptr is the ROM code function address, followed
+- * by additional parameters as necessary
++ * Assembly interfaces to call into the Container Verification Code.
++ * func_ptr: CVC base address + offset
+  */
+-ROM_response call_rom_verify(void *func_ptr, ROM_container_raw *container,
++ROM_response __cvc_verify_v1(void *func_ptr, ROM_container_raw *container,
+ 			     ROM_hw_params *params);
+-void call_rom_SHA512(void *func_ptr, const uint8_t *data, size_t len,
++void __cvc_sha512_v1(void *func_ptr, const uint8_t *data, size_t len,
+ 		     uint8_t *digest);
+ 
+ static int romcode_verify(void *container)
+@@ -54,7 +53,7 @@ static int romcode_verify(void *container)
+ 
+ 	memset(&hw_params, 0, sizeof(ROM_hw_params));
+ 	memcpy(&hw_params.hw_key_hash, hw_key_hash, sizeof(sha2_hash_t));
+-	rc = call_rom_verify(romcode_base_addr + ROMCODE_VERIFY_OFFSET,
++	rc = __cvc_verify_v1(romcode_base_addr + ROMCODE_VERIFY_OFFSET,
+ 			     (ROM_container_raw*) container, &hw_params);
+ 	if (rc != ROM_DONE) {
+ 		/*
+@@ -71,7 +70,7 @@ static int romcode_verify(void *container)
+ static void romcode_sha512(const uint8_t *data, size_t len, uint8_t *digest)
+ {
+ 	memset(digest, 0, sizeof(sha2_hash_t));
+-	call_rom_SHA512(romcode_base_addr + ROMCODE_SHA512_OFFSET,
++	__cvc_sha512_v1(romcode_base_addr + ROMCODE_SHA512_OFFSET,
+ 			data, len, digest);
+ }
+ 
+-- 
+2.13.6
+

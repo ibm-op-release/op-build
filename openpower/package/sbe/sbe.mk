@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-SBE_VERSION ?= 16c6bc88d3af8052102bcf9e8a795924720a0d0d
+SBE_VERSION ?= 44274c7ef89d7d321fbc02fee4beca2a96292426
 SBE_SITE ?= $(call github,ibm-op-release,sbe,$(SBE_VERSION))
 
 SBE_LICENSE = Apache-2.0

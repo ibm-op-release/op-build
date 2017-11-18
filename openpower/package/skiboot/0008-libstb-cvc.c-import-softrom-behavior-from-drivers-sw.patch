@@ -1,0 +1,64 @@
+From 27c57e7f582ac4f562a92f73fddddbeb3d73fd46 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:31 -0200
+Subject: [PATCH 08/19] libstb/cvc.c: import softrom behavior from
+ drivers/sw_driver.c
+
+Softrom is used only for testing with mambo. By setting
+compatible="ibm,secureboot-v1-softrom" in the "ibm,secureboot" node,
+firmware images can be properly measured even if the
+Container-Verification-Code (CVC) is not available. In this case, the
+mbedtls_sha512() function is used to calculate the sha512 hash of the
+firmware images.
+
+This imports the softrom behavior from libstb/drivers/sw_driver.c code
+into cvc.c, but now softrom is implemented as a flag. When the flag is
+set, the wrappers for the CVC services work the same way as in
+sw_driver.c.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ libstb/cvc.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/libstb/cvc.c b/libstb/cvc.c
+index ddb6a1cfbf6a..5f46e5ebeb00 100644
+--- a/libstb/cvc.c
++++ b/libstb/cvc.c
+@@ -25,6 +25,7 @@
+ #include <xscom.h>
+ #include "container.h"
+ #include "cvc.h"
++#include "mbedtls/sha512.h"
+ 
+ /*
+  * Assembly interfaces to call into the Container Verification Code.
+@@ -251,6 +252,15 @@ int call_cvc_sha512(const uint8_t *data, size_t data_len, uint8_t *digest,
+ 		return OPAL_SUCCESS;
+ 
+ 	memset(digest, 0, SHA512_DIGEST_LENGTH);
++	if (softrom) {
++		mbedtls_sha512_context ctx;
++		mbedtls_sha512_init(&ctx);
++		mbedtls_sha512_starts(&ctx, 0); // SHA512 = 0
++		mbedtls_sha512_update(&ctx, data, data_len);
++		mbedtls_sha512_finish(&ctx, digest);
++		mbedtls_sha512_free(&ctx);
++		return OPAL_SUCCESS;
++	}
+ 
+ 	service = cvc_find_service(CVC_SHA512_SERVICE);
+ 
+@@ -276,6 +286,9 @@ int call_cvc_verify(void *container, size_t len, const void *hw_key_hash,
+ 	    !hw_key_hash || hw_key_hash_size <= 0)
+ 		return OPAL_PARAMETER;
+ 
++	if (softrom)
++		return OPAL_RESOURCE;
++
+ 	service = cvc_find_service(CVC_VERIFY_SERVICE);
+ 
+ 	if (!service)
+-- 
+2.13.6
+

@@ -1,0 +1,559 @@
+From f20259249c427a38163c4d468705d0d3b5f0ad19 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:30 -0200
+Subject: [PATCH 07/19] libstb: import stb_init() breaking it into multiple
+ files
+
+This imports stb_init() from stb.c, but breaking it into multiple files
+in order to make the code easier to read and to maintain. New files
+created: secureboot.c, trustedboot.c and cvc.c.
+
+The secureboot_init() in secureboot.c also initializes the hardware key
+hash and the hardware key hash size (hash-algo), they will be needed to
+call the CVC verify wrapper. These variables were initialized in the
+romcode_probe() function, libstb/drivers/romcode.c.
+
+The cvc_init() in cvc.c is slightly modified from what exists in
+stb_init(). Now it calls cvc_register() and cvc_service_register(),
+which are also used to initialize the CVC during HDAT parsing for
+POWER9.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ libstb/Makefile.inc      |   2 +-
+ libstb/cvc.c             | 114 +++++++++++++++++++++++++++++++++++++++++++++
+ libstb/cvc.h             |  11 +++++
+ libstb/secureboot.c      | 117 +++++++++++++++++++++++++++++++++++++++++++++++
+ libstb/secureboot.h      |  22 +++++++++
+ libstb/tpm_chip.c        |  24 ++--------
+ libstb/tpm_chip.h        |   2 +-
+ libstb/trustedboot.c     |  76 ++++++++++++++++++++++++++++++
+ libstb/trustedboot.h     |  22 +++++++++
+ libstb/tss/trustedboot.H |   6 +--
+ 10 files changed, 372 insertions(+), 24 deletions(-)
+ create mode 100644 libstb/secureboot.c
+ create mode 100644 libstb/secureboot.h
+ create mode 100644 libstb/trustedboot.c
+ create mode 100644 libstb/trustedboot.h
+
+diff --git a/libstb/Makefile.inc b/libstb/Makefile.inc
+index 473edec1b9b2..7b90bd593dcc 100644
+--- a/libstb/Makefile.inc
++++ b/libstb/Makefile.inc
+@@ -4,7 +4,7 @@ LIBSTB_DIR = libstb
+ 
+ SUBDIRS += $(LIBSTB_DIR)
+ 
+-LIBSTB_SRCS = container.c rom.c tpm_chip.c stb.c cvc.c
++LIBSTB_SRCS = container.c rom.c tpm_chip.c stb.c cvc.c secureboot.c trustedboot.c
+ LIBSTB_OBJS = $(LIBSTB_SRCS:%.c=%.o)
+ LIBSTB = $(LIBSTB_DIR)/built-in.o
+ 
+diff --git a/libstb/cvc.c b/libstb/cvc.c
+index 6ad13b365f56..ddb6a1cfbf6a 100644
+--- a/libstb/cvc.c
++++ b/libstb/cvc.c
+@@ -21,6 +21,8 @@
+ #include <skiboot.h>
+ #include <string.h>
+ #include <opal-api.h>
++#include <chip.h>
++#include <xscom.h>
+ #include "container.h"
+ #include "cvc.h"
+ 
+@@ -54,7 +56,46 @@ static struct {
+ 	{ CVC_VERIFY_SERVICE, "verify" },
+ };
+ 
++/*
++ * Supported /ibm,secureboot compat
++ */
++static struct {
++	enum secureboot_dt_version id;
++	const char *compat;
++} secureboot_dt_map[] = {
++	{ IBM_SECUREBOOT_V1, "ibm,secureboot-v1" },
++	{ IBM_SECUREBOOT_SOFTROM, "ibm,secureboot-v1-softrom" },
++};
++
+ static struct container_verification_code *cvc = NULL;
++static bool softrom = false;
++static void *secure_rom_mem = NULL;
++
++int check_secureboot_dt_compat(struct dt_node *node)
++{
++	int i;
++
++	if (!node)
++		return -1;
++
++	for (i = 0; i < ARRAY_SIZE(secureboot_dt_map); i++) {
++		if (dt_node_is_compatible(node, secureboot_dt_map[i].compat)) {
++			return secureboot_dt_map[i].id;
++		}
++	}
++	return -1;
++}
++
++const char* __attrconst get_secureboot_dt_compat(enum secureboot_dt_version version)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(secureboot_dt_map); i++) {
++		if (secureboot_dt_map[i].id == version)
++			return secureboot_dt_map[i].compat;
++	}
++	return NULL;
++}
+ 
+ static struct cvc_service *cvc_find_service(enum cvc_service_id id)
+ {
+@@ -80,6 +121,79 @@ static const char *cvc_get_service_name(enum cvc_service_id id)
+ 	return NULL;
+ }
+ 
++#define SECURE_ROM_MEMORY_SIZE		(16 * 1024)
++#define SECURE_ROM_XSCOM_ADDRESS	0x02020017
++
++#define SECURE_ROM_SHA512_OFFSET	0x20
++#define SECURE_ROM_VERIFY_OFFSET	0x30
++
++int cvc_init(void)
++{
++	struct dt_node *node;
++	int version;
++
++	if (cvc)
++		return 0;
++
++	node = dt_find_by_path(dt_root, "/ibm,secureboot");
++	if (!node) {
++		prlog(PR_DEBUG,"CVC not supported\n");
++		return -1;
++	}
++
++	version = check_secureboot_dt_compat(node);
++
++	if (version < 0) {
++		/**
++		 * @fwts-label CVCNotCompatible
++		 * @fwts-advice Compatible CVC driver not found. Probably,
++		 * hostboot/mambo/skiboot has updated the
++		 * /ibm,secureboot/compatible without adding a driver that
++		 * supports it.
++		 */
++		prlog(PR_ERR, "CVC init FAILED, '%s' node not "
++		      "compatible.\n", node->name);
++		return -1;
++	}
++
++	/* Only in P8 the CVC is stored in a secure ROM */
++	if (version == IBM_SECUREBOOT_V1 &&
++	    proc_gen == proc_gen_p8) {
++		const uint32_t reg_addr = SECURE_ROM_XSCOM_ADDRESS;
++		uint64_t reg_data;
++		struct proc_chip *chip;
++
++		if (!secure_rom_mem) {
++			secure_rom_mem = malloc(SECURE_ROM_MEMORY_SIZE);
++			assert(secure_rom_mem);
++		}
++		/*
++		 * The logic that contains the ROM within the processor is implemented
++		 * in a way that it only responds to CI (cache inhibited) operations.
++		 * Due to performance issues we copy the verification code from the
++		 * secure ROM to RAM. We use memcpy_from_ci() to do that.
++		 */
++		chip = next_chip(NULL);
++		xscom_read(chip->id, reg_addr, &reg_data);
++		memcpy_from_ci(secure_rom_mem, (void*) reg_data,
++			       SECURE_ROM_MEMORY_SIZE);
++
++		cvc_register((uint64_t)&secure_rom_mem,
++			     (uint64_t)&secure_rom_mem + SECURE_ROM_MEMORY_SIZE-1);
++		cvc_service_register(CVC_SHA512_SERVICE, SECURE_ROM_SHA512_OFFSET, 1);
++		cvc_service_register(CVC_VERIFY_SERVICE, SECURE_ROM_VERIFY_OFFSET, 1);
++
++	} else if (version == IBM_SECUREBOOT_SOFTROM) {
++		softrom = true;
++	} else {
++		prlog(PR_ERR, "%s FAILED. Error during hdat parsing? "
++		      "version=0x%x\n", __func__, version);
++		return -1;
++	}
++
++	return 0;
++}
++
+ void cvc_register(uint64_t start_addr, uint64_t end_addr)
+ {
+ 	if (cvc)
+diff --git a/libstb/cvc.h b/libstb/cvc.h
+index b9e45b3b9f1e..c53cf8119d19 100644
+--- a/libstb/cvc.h
++++ b/libstb/cvc.h
+@@ -17,12 +17,23 @@
+ #ifndef __CVC_H
+ #define __CVC_H
+ 
++#include <device.h>
++
+ /* As defined in the HDAT spec version 10.5e */
+ enum cvc_service_id {
+ 	CVC_SHA512_SERVICE = 0x00,
+ 	CVC_VERIFY_SERVICE = 0x01,
+ };
+ 
++enum secureboot_dt_version {
++	IBM_SECUREBOOT_V1,
++	IBM_SECUREBOOT_SOFTROM,
++};
++
++int check_secureboot_dt_compat(struct dt_node *node);
++const char* __attrconst get_secureboot_dt_compat(enum secureboot_dt_version version);
++
++int cvc_init(void);
+ void cvc_register(uint64_t start_addr, uint64_t end_addr);
+ void cvc_service_register(uint32_t type, uint32_t version, uint32_t offset);
+ 
+diff --git a/libstb/secureboot.c b/libstb/secureboot.c
+new file mode 100644
+index 000000000000..6f4be802a57e
+--- /dev/null
++++ b/libstb/secureboot.c
+@@ -0,0 +1,117 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * 	http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef pr_fmt
++#define pr_fmt(fmt) "STB: " fmt
++#endif
++
++#include <skiboot.h>
++#include <device.h>
++#include <nvram.h>
++#include "secureboot.h"
++#include "container.h"
++#include "cvc.h"
++
++static const void* hw_key_hash = NULL;
++static size_t hw_key_hash_size;
++static bool secure_mode = false;
++
++static void secureboot_enforce(void)
++{
++	if (secure_mode) {
++		/*
++		 * TODO: Ideally, the BMC should decide what security policy to
++		 * apply (power off, reboot, switch PNOR sides, etc). We may
++		 * need to provide extra info to BMC other than just abort.
++		 * Terminate Immediate Attention ? (TI)
++		 */
++		prlog(PR_EMERG, "secure mode enforced, aborting.\n");
++		abort();
++	}
++}
++
++void secureboot_init(void)
++{
++	struct dt_node *node;
++	const char* hash_algo;
++	int version;
++
++	node = dt_find_by_path(dt_root, "/ibm,secureboot");
++	if (!node) {
++		prlog(PR_NOTICE, "secure boot not supported\n");
++		return;
++	}
++
++	version = check_secureboot_dt_compat(node);
++
++	if (version < 0) {
++		/**
++		 * @fwts-label SecureBootNotCompatible
++		 * @fwts-advice Compatible secureboot driver not found. Probably,
++		 * hostboot/mambo/skiboot has updated the
++		 * /ibm,secureboot/compatible without adding a driver that
++		 * supports it.
++		 */
++		prlog(PR_ERR, "secureboot init FAILED, '%s' node not "
++		      "compatible.\n", node->name);
++		return;
++	}
++
++	prlog(PR_NOTICE, "Found %s\n", get_secureboot_dt_compat(version));
++
++	if (nvram_query_eq("force-secure-mode", "always")) {
++		secure_mode = true;
++		prlog(PR_NOTICE, "secure mode on (FORCED by nvram)\n");
++	} else {
++		secure_mode = dt_has_node_property(node, "secure-enabled", NULL);
++		prlog(PR_NOTICE, "secure mode %s\n",
++		      secure_mode ? "on" : "off");
++	}
++
++	if (!secure_mode)
++		return;
++
++	if (version == IBM_SECUREBOOT_V1 ||
++	    version == IBM_SECUREBOOT_SOFTROM) {
++		hash_algo = dt_prop_get(node, "hash-algo");
++		if (strcmp(hash_algo, "sha512")) {
++			/**
++			 * @fwts-label HashAlgoInvalid
++			 * @fwts-advice Hash algorithm invalid, secureboot
++			 * containers version 1 requires sha512. If you're
++			 * running the latest POWER firmware, so probably there
++			 * is a bug in the device tree received from hostboot.
++			 */
++			prlog(PR_EMERG, "secureboot-v1 init FAILED, hash-algo=%s "
++			      "not supported\n", hash_algo);
++			secureboot_enforce();
++		}
++		hw_key_hash_size = SHA512_DIGEST_LENGTH;
++	} else {
++		prlog(PR_EMERG, "secureboot init FAILED, version=%d not "
++		      "implemented\n", version);
++		secureboot_enforce();
++	}
++
++	hw_key_hash = dt_prop_get_def_size(node, "hw-key-hash", NULL,
++					   &hw_key_hash_size);
++	assert(hw_key_hash);
++
++	if (cvc_init()) {
++		prlog(PR_EMERG, "CVC init failed\n");
++		secureboot_enforce();
++	}
++}
+diff --git a/libstb/secureboot.h b/libstb/secureboot.h
+new file mode 100644
+index 000000000000..5bdae0a3185e
+--- /dev/null
++++ b/libstb/secureboot.h
+@@ -0,0 +1,22 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * 	http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef __SECUREBOOT_H
++#define __SECUREBOOT_H
++
++void secureboot_init(void);
++
++#endif /* __SECUREBOOT_H */
+diff --git a/libstb/tpm_chip.c b/libstb/tpm_chip.c
+index 6791f4c1e24e..e04aa304336c 100644
+--- a/libstb/tpm_chip.c
++++ b/libstb/tpm_chip.c
+@@ -168,32 +168,18 @@ disable:
+ 	return STB_ERROR;
+ }
+ 
+-void tpm_init(void)
++int tpm_init(void)
+ {
+-	if (!list_empty(&tpm_list)) {
+-		/**
+-		 * @fwts-label TPMAlreadyInitialized
+-		 * @fwts-advice TPM already initialized. Check if tpm is being
+-		 * initialized more than once.
+-		 */
+-		prlog(PR_WARNING, "TPM: tpm device(s) already initialized\n");
+-		return;
+-	}
+-
++	if (!list_empty(&tpm_list))
++		return 0;
+ 	list_head_init(&tpm_list);
+ 
+ 	/* tpm drivers supported */
+ 	tpm_i2c_nuvoton_probe();
+ 
+ 	if (list_empty(&tpm_list))
+-		/**
+-		 * @fwts-label NoTPMRegistered
+-		 * @fwts-advice No TPM chip has been initialized. We may not
+-		 * have a compatible tpm driver or there is no tpm node in the
+-		 * device tree with the expected bindings.
+-		 */
+-		prlog(PR_ERR, "TPM: no tpm chip registered\n");
+-
++		return -1;
++	return 0;
+ }
+ 
+ void tpm_cleanup(void)
+diff --git a/libstb/tpm_chip.h b/libstb/tpm_chip.h
+index d7363e739566..fed5619b622c 100644
+--- a/libstb/tpm_chip.h
++++ b/libstb/tpm_chip.h
+@@ -102,7 +102,7 @@ extern int tpm_extendl(TPM_Pcr pcr,
+ /* Add status property to the TPM devices */
+ extern void tpm_add_status_property(void);
+ 
+-extern void tpm_init(void);
++extern int tpm_init(void);
+ extern void tpm_cleanup(void);
+ 
+ #endif /* __TPM_H */
+diff --git a/libstb/trustedboot.c b/libstb/trustedboot.c
+new file mode 100644
+index 000000000000..e97405fdc0d3
+--- /dev/null
++++ b/libstb/trustedboot.c
+@@ -0,0 +1,76 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * 	http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef pr_fmt
++#define pr_fmt(fmt) "STB: " fmt
++#endif
++
++#include <skiboot.h>
++#include <device.h>
++#include <nvram.h>
++#include "trustedboot.h"
++#include "tpm_chip.h"
++#include "cvc.h"
++
++static bool trusted_mode = false;
++
++void trustedboot_init(void)
++{
++	struct dt_node *node;
++	int version;
++
++	node = dt_find_by_path(dt_root, "/ibm,secureboot");
++	if (!node) {
++		prlog(PR_NOTICE, "trusted boot not supported\n");
++		return;
++	}
++
++	version = check_secureboot_dt_compat(node);
++
++	if (version < 0) {
++		/**
++		 * @fwts-label TrustedBootNotCompatible
++		 * @fwts-advice Compatible trustedboot driver not found. Probably,
++		 * hostboot/mambo/skiboot has updated the
++		 * /ibm,secureboot/compatible without adding a driver that
++		 * supports it.
++		 */
++		prlog(PR_ERR, "trustedboot init FAILED, '%s' node not "
++		      "compatible.\n", node->name);
++		return;
++	}
++
++	if (nvram_query_eq("force-trusted-mode", "true")) {
++		trusted_mode = true;
++		prlog(PR_NOTICE, "trusted mode on (FORCED by nvram)\n");
++	} else {
++		trusted_mode = dt_has_node_property(node, "trusted-enabled", NULL);
++		prlog(PR_NOTICE, "trusted mode %s\n",
++		      trusted_mode ? "on" : "off");
++	}
++
++	if (!trusted_mode)
++		return;
++
++	cvc_init();
++
++	if (tpm_init())
++		/**
++		 * @fwts-label TpmInitFailed
++		 * @fwts-advice No supported tpm device found
++		 */
++		prlog(PR_ERR, "tpm init FAILED\n");
++}
+diff --git a/libstb/trustedboot.h b/libstb/trustedboot.h
+new file mode 100644
+index 000000000000..459751443be3
+--- /dev/null
++++ b/libstb/trustedboot.h
+@@ -0,0 +1,22 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef __TRUSTEDBOOT_H
++#define __TRUSTEDBOOT_H
++
++void trustedboot_init(void);
++
++#endif /* __TRUSTEDBOOT_H */
+diff --git a/libstb/tss/trustedboot.H b/libstb/tss/trustedboot.H
+index dccee1a7c8d1..bee3b49d64bd 100644
+--- a/libstb/tss/trustedboot.H
++++ b/libstb/tss/trustedboot.H
+@@ -19,8 +19,8 @@
+  * codes to equivalent routines and types in skiboot.
+  ***************************************************************/
+ 
+-#ifndef __TRUSTEDBOOT_H
+-#define __TRUSTEDBOOT_H
++#ifndef __TSS_TRUSTEDBOOT_H
++#define __TSS_TRUSTEDBOOT_H
+ 
+ #include <skiboot.h>
+ #include <stdint.h>
+@@ -69,4 +69,4 @@ typedef enum {
+     IMPLEMENTATION_PCR = 24
+ } TPM_Pcr;
+ 
+-#endif
++#endif /* __TSS_TRUSTEDBOOT_H */
+-- 
+2.13.6
+

@@ -5,7 +5,7 @@
 ################################################################################
 
 OCC_VERSION_BRANCH_MASTER_P8 ?= 28f2cec690b7f19548ce860a8820f519e6c39a6a
-OCC_VERSION_BRANCH_MASTER ?= ba4e81e804275ced6c1793f818e5fc1fd8d1ecae
+OCC_VERSION_BRANCH_MASTER ?= dbb4d7e88cf3a4f83d4b67b6ff90cb222503c60c
 
 OCC_VERSION ?= $(if $(BR2_OPENPOWER_POWER9),$(OCC_VERSION_BRANCH_MASTER),$(OCC_VERSION_BRANCH_MASTER_P8))
 OCC_SITE ?= $(call github,open-power,occ,$(OCC_VERSION))
@@ -50,9 +50,9 @@ define OCC_BUILD_CMDS_P8
         make combineImage
 endef
 define OCC_BUILD_CMDS_P9
-	if ["$(BR2_OCC_GPU_BIN_BUILD)" == "y"  ]; then \
+	if [ "$(BR2_OCC_GPU_BIN_BUILD)" == "y"  ]; then \
 	    cd $(@D)/src && \
-            make PPE_TOOL_PATH=$(PPE42_GCC_BIN) OCC_OP_BUILD=1 CROSS_PREFIX=$(TARGET_CROSS) LD_LIBRARY_PATH=$(HOST_DIR)/usr/lib GPE1_BIN_IMAGE_PATH=$(STAGING_DIR)/hostboot_build_images/ OPOCC_GPU_SUPPORT=1 all; \
+            make PPE_TOOL_PATH=$(PPE42_GCC_BIN) OCC_OP_BUILD=1 CROSS_PREFIX=$(TARGET_CROSS) LD_LIBRARY_PATH=$(HOST_DIR)/usr/lib GPE1_BIN_IMAGE_PATH=$(STAGING_DIR)/hostboot_binaries/ OPOCC_GPU_SUPPORT=1 all; \
 	else \
             cd $(@D)/src && \
             make PPE_TOOL_PATH=$(PPE42_GCC_BIN) OCC_OP_BUILD=1 CROSS_PREFIX=$(TARGET_CROSS) LD_LIBRARY_PATH=$(HOST_DIR)/usr/lib all; \

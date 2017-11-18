@@ -1,0 +1,157 @@
+From 53d78bf6537586c91c6e9aa1536c6ae0ed154055 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:34 -0200
+Subject: [PATCH 11/19] libstb/secureboot.c: import sb_verify() from stb.c
+
+This imports the sb_verify() function from stb.c, but now it calls the
+added CVC verify wrapper in order to verify signed firmware images. The
+hw-key-hash and hw-key-hash-size initialized in secureboot.c are passed
+to the CVC verify function wrapper.
+
+In secureboot.c, the sb_verify() is renamed to secureboot_verify(). The
+sb_verify() calls are updated in a subsequent patch.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ libstb/cvc.c        | 13 +++++++++++++
+ libstb/cvc.h        |  1 +
+ libstb/secureboot.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ libstb/secureboot.h | 18 ++++++++++++++++++
+ 4 files changed, 85 insertions(+)
+
+diff --git a/libstb/cvc.c b/libstb/cvc.c
+index 5f46e5ebeb00..6d133e53701f 100644
+--- a/libstb/cvc.c
++++ b/libstb/cvc.c
+@@ -122,6 +122,19 @@ static const char *cvc_get_service_name(enum cvc_service_id id)
+ 	return NULL;
+ }
+ 
++int cvc_get_service_version(enum cvc_service_id id)
++{
++	struct cvc_service *service;
++	if (!cvc)
++		return -1;
++
++	service = cvc_find_service(id);
++	if (!service)
++		return -1;
++
++	return service->version;
++}
++
+ #define SECURE_ROM_MEMORY_SIZE		(16 * 1024)
+ #define SECURE_ROM_XSCOM_ADDRESS	0x02020017
+ 
+diff --git a/libstb/cvc.h b/libstb/cvc.h
+index c53cf8119d19..7dfda333e54d 100644
+--- a/libstb/cvc.h
++++ b/libstb/cvc.h
+@@ -36,6 +36,7 @@ const char* __attrconst get_secureboot_dt_compat(enum secureboot_dt_version vers
+ int cvc_init(void);
+ void cvc_register(uint64_t start_addr, uint64_t end_addr);
+ void cvc_service_register(uint32_t type, uint32_t version, uint32_t offset);
++int cvc_get_service_version(enum cvc_service_id id);
+ 
+ /************************************************************************
+  * Wrappers for the services provided by the Container-Verification-Code
+diff --git a/libstb/secureboot.c b/libstb/secureboot.c
+index 6f4be802a57e..7014f07fb0b7 100644
+--- a/libstb/secureboot.c
++++ b/libstb/secureboot.c
+@@ -21,6 +21,7 @@
+ #include <skiboot.h>
+ #include <device.h>
+ #include <nvram.h>
++#include <opal-api.h>
+ #include "secureboot.h"
+ #include "container.h"
+ #include "cvc.h"
+@@ -115,3 +116,55 @@ void secureboot_init(void)
+ 		secureboot_enforce();
+ 	}
+ }
++
++int secureboot_verify(enum resource_id id, void *buf, size_t len)
++{
++	const char *name;
++	uint64_t log;
++	int rc = -1;
++
++	if (!secure_mode)
++		return 0;
++
++	name = flash_map_resource_name(id);
++	if (!name) {
++		prlog(PR_EMERG, "container NOT VERIFIED, resource_id=%d "
++		      "unknown\n", id);
++		secureboot_enforce();
++	}
++
++	rc = call_cvc_verify(buf, len, hw_key_hash, hw_key_hash_size, &log);
++
++	if (rc == OPAL_SUCCESS) {
++		prlog(PR_INFO, "%s verified\n", name);
++	} else if (rc == OPAL_PARTIAL) {
++		/*
++		 * The value returned in log indicates what checking has
++		 * failed. Return codes defined in
++		 * /hostboot/src/include/securerom/status_codes.H
++		 */
++		prlog(PR_EMERG, "%s verification FAILED. log=0x%llx\n",
++			name, be64_to_cpu(log));
++		secureboot_enforce();
++	} else if (rc == OPAL_PARAMETER) {
++		prlog(PR_EMERG, "%s NOT VERIFIED, invalid param. buf=%p, "
++		      "len=%zd key-hash=%p hash-size=%zd\n", name, buf, len,
++		      hw_key_hash, hw_key_hash_size);
++		secureboot_enforce();
++	} else if (rc == OPAL_RESOURCE) {
++		prlog(PR_EMERG, "%s NOT VERIFIED, CVC-verify service not "
++		      "available\n", name);
++		secureboot_enforce();
++	} else if (rc == OPAL_UNSUPPORTED) {
++		prlog(PR_EMERG, "%s NOT VERIFIED, CVC-verify "
++		      "version %d not supported\n", name,
++		      cvc_get_service_version(CVC_VERIFY_SERVICE));
++		secureboot_enforce();
++	} else {
++		prlog(PR_EMERG, "%s NOT VERIFIED, unknown CVC-verify error. "
++		      "rc=%d\n", name, rc);
++		secureboot_enforce();
++	}
++
++	return 0;
++}
+diff --git a/libstb/secureboot.h b/libstb/secureboot.h
+index 5bdae0a3185e..db54976b17b2 100644
+--- a/libstb/secureboot.h
++++ b/libstb/secureboot.h
+@@ -17,6 +17,24 @@
+ #ifndef __SECUREBOOT_H
+ #define __SECUREBOOT_H
+ 
++#include <platform.h>
++
+ void secureboot_init(void);
+ 
++/**
++ * secureboot_verify - verify a PNOR partition content
++ * @id   : PNOR partition id
++ * @buf  : PNOR partition content to be verified
++ * @len  : @buf length
++ *
++ * This verifies the integrity and authenticity of @buf downloaded from PNOR if
++ * secure mode is on. The verification is done by the Container Verification
++ * Code (CVC) flashed in ROM.
++ *
++ * For more information refer to 'doc/stb.rst'
++ *
++ * returns: 0 otherwise the boot process is aborted
++ */
++int secureboot_verify(enum resource_id id, void *buf, size_t len);
++
+ #endif /* __SECUREBOOT_H */
+-- 
+2.13.6
+

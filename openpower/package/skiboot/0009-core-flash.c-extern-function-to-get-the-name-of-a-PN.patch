@@ -1,0 +1,52 @@
+From 68661f858866507c06c96e0a3b8925cadb4f11b4 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:32 -0200
+Subject: [PATCH 09/19] core/flash.c: extern function to get the name of a PNOR
+ partition
+
+This adds the flash_map_resource_name() to allow skiboot subsystems to
+lookup the name of a PNOR partition. Thus, we don't need to duplicate
+the same information in other places (e.g. libstb).
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ core/flash.c      | 10 ++++++++++
+ include/skiboot.h |  1 +
+ 2 files changed, 11 insertions(+)
+
+diff --git a/core/flash.c b/core/flash.c
+index 2744496c0dd6..66568e79af2f 100644
+--- a/core/flash.c
++++ b/core/flash.c
+@@ -537,6 +537,16 @@ static struct {
+ 	{ RESOURCE_ID_VERSION,	RESOURCE_SUBID_NONE,		"VERSION" },
+ };
+ 
++const char *flash_map_resource_name(enum resource_id id)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(part_name_map); i++) {
++		if (part_name_map[i].id == id)
++			return part_name_map[i].name;
++	}
++	return NULL;
++}
+ 
+ static size_t sizeof_elf_from_hdr(void *buf)
+ {
+diff --git a/include/skiboot.h b/include/skiboot.h
+index db9132588ddc..1b961fe1043d 100644
+--- a/include/skiboot.h
++++ b/include/skiboot.h
+@@ -256,6 +256,7 @@ extern int flash_subpart_info(void *part_header, uint32_t header_len,
+ 			      uint32_t *size);
+ extern void flash_fw_version_preload(void);
+ extern void flash_dt_add_fw_version(void);
++extern const char *flash_map_resource_name(enum resource_id id);
+ 
+ /* NVRAM support */
+ extern void nvram_init(void);
+-- 
+2.13.6
+

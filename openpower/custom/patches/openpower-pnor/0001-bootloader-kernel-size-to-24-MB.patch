@@ -1,4 +1,4 @@
-From dc2c5e44d87462d3a7326e84663253967963c008 Mon Sep 17 00:00:00 2001
+From 6b80483f263f1f0f0a72f95d8104e002f594fc86 Mon Sep 17 00:00:00 2001
 From: jim <jim.yuan@supermicro.com>
 Date: Fri, 15 Sep 2017 09:31:05 -0700
 Subject: [PATCH] bootloader kernel size to 24 MB.
@@ -8,11 +8,11 @@ Subject: [PATCH] bootloader kernel size to 24 MB.
  1 file changed, 16 insertions(+), 16 deletions(-)
 
 diff --git a/p9Layouts/defaultPnorLayout_64.xml b/p9Layouts/defaultPnorLayout_64.xml
-index a1e7d4e..8c469d6 100644
+index a626275..2663fb9 100644
 --- a/p9Layouts/defaultPnorLayout_64.xml
 +++ b/p9Layouts/defaultPnorLayout_64.xml
-@@ -212,17 +212,17 @@ Layout Description
-         <sha512Version/>
+@@ -216,10 +216,10 @@ Layout Description
+         <readOnly/>
      </section>
      <section>
 -        <description>Bootloader Kernel (15MB)</description>
@@ -23,7 +23,8 @@ index a1e7d4e..8c469d6 100644
 +        <physicalRegionSize>0x1800000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-     </section>
+         <readOnly/>
+@@ -227,7 +227,7 @@ Layout Description
      <section>
          <description>OCC Lid (1.125M)</description>
          <eyeCatch>OCC</eyeCatch>
@@ -32,7 +33,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x120000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-@@ -231,7 +231,7 @@ Layout Description
+@@ -237,7 +237,7 @@ Layout Description
      <section>
          <description>FIRDATA (12K)</description>
          <eyeCatch>FIRDATA</eyeCatch>
@@ -41,7 +42,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x3000</physicalRegionSize>
          <side>A</side>
          <ecc/>
-@@ -241,7 +241,7 @@ Layout Description
+@@ -247,7 +247,7 @@ Layout Description
      <section>
          <description>CAPP Lid (144K)</description>
          <eyeCatch>CAPP</eyeCatch>
@@ -50,7 +51,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x24000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-@@ -250,7 +250,7 @@ Layout Description
+@@ -257,7 +257,7 @@ Layout Description
      <section>
          <description>BMC_INV (36K)</description>
          <eyeCatch>BMC_INV</eyeCatch>
@@ -59,7 +60,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x9000</physicalRegionSize>
          <side>sideless</side>
          <reprovision/>
-@@ -258,7 +258,7 @@ Layout Description
+@@ -265,7 +265,7 @@ Layout Description
      <section>
          <description>Hostboot Bootloader (28K)</description>
          <eyeCatch>HBBL</eyeCatch>
@@ -68,7 +69,7 @@ index a1e7d4e..8c469d6 100644
          <!-- Physical Size includes Header rounded to ECC valid size -->
          <!-- Max size of actual HBBL content is 20K and 22.5K with ECC -->
          <physicalRegionSize>0x7000</physicalRegionSize>
-@@ -269,7 +269,7 @@ Layout Description
+@@ -277,7 +277,7 @@ Layout Description
      <section>
          <description>Temporary Attribute Override (32K)</description>
          <eyeCatch>ATTR_TMP</eyeCatch>
@@ -77,7 +78,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x8000</physicalRegionSize>
          <side>A</side>
          <reprovision/>
-@@ -277,7 +277,7 @@ Layout Description
+@@ -285,7 +285,7 @@ Layout Description
      <section>
          <description>Permanent Attribute Override (32K)</description>
          <eyeCatch>ATTR_PERM</eyeCatch>
@@ -86,7 +87,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x8000</physicalRegionSize>
          <side>A</side>
          <ecc/>
-@@ -287,14 +287,14 @@ Layout Description
+@@ -295,7 +295,7 @@ Layout Description
      <section>
          <description>PNOR Version (4K)</description>
          <eyeCatch>VERSION</eyeCatch>
@@ -94,7 +95,8 @@ index a1e7d4e..8c469d6 100644
 +        <physicalOffset>0x3148000</physicalOffset>
          <physicalRegionSize>0x1000</physicalRegionSize>
          <side>A</side>
-     </section>
+         <readOnly/>
+@@ -303,7 +303,7 @@ Layout Description
      <section>
          <description>IMA Catalog (256K)</description>
          <eyeCatch>IMA_CATALOG</eyeCatch>
@@ -103,7 +105,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x40000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-@@ -303,7 +303,7 @@ Layout Description
+@@ -313,7 +313,7 @@ Layout Description
      <section>
          <description>Ref Image Ring Overrides (128K)</description>
          <eyeCatch>RINGOVD</eyeCatch>
@@ -112,7 +114,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x20000</physicalRegionSize>
          <side>A</side>
      </section>
-@@ -312,7 +312,7 @@ Layout Description
+@@ -322,7 +322,7 @@ Layout Description
          <!-- We need 266KB per module sort, going to support
               10 sorts by default, plus ECC  -->
          <eyeCatch>WOFDATA</eyeCatch>
@@ -121,7 +123,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x300000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-@@ -321,7 +321,7 @@ Layout Description
+@@ -332,7 +332,7 @@ Layout Description
      <section>
          <description>Hostboot deconfig area (64KB)</description>
          <eyeCatch>HB_VOLATILE</eyeCatch>
@@ -130,7 +132,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0x5000</physicalRegionSize>
          <side>A</side>
          <reprovision/>
-@@ -332,7 +332,7 @@ Layout Description
+@@ -343,7 +343,7 @@ Layout Description
      <section>
          <description>MEMD extra data (28K)</description>
          <eyeCatch>MEMD</eyeCatch>
@@ -139,7 +141,7 @@ index a1e7d4e..8c469d6 100644
          <physicalRegionSize>0xE000</physicalRegionSize>
          <side>A</side>
          <sha512Version/>
-@@ -341,7 +341,7 @@ Layout Description
+@@ -353,7 +353,7 @@ Layout Description
      <section>
          <description>SecureBoot Key Transition Partition (16K)</description>
          <eyeCatch>SBKT</eyeCatch>

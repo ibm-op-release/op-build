@@ -1,0 +1,44 @@
+From 898c56f52ff5fffb7acb453d6f451ec22e6b65ed Mon Sep 17 00:00:00 2001
+From: Dean Sanner <dsanner@us.ibm.com>
+Date: Mon, 4 Dec 2017 20:37:49 -0600
+Subject: [PATCH v1 1000/1002] Ignore #V power sorts for op910 only
+
+Some of the parts shipping for op910 have incorrect
+power sorts written to #V MVPD -- however they are compatible
+as long as the nominal core freq and nest frequency are the same.
+Thus remove a FW check to ensure common power sorts across sockets
+to allow the parts to work together.
+
+Change-Id: I9dc897d4e751266706437ac7c142f9f253476dc6
+---
+ src/usr/isteps/istep06/call_host_voltage_config.C | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/usr/isteps/istep06/call_host_voltage_config.C b/src/usr/isteps/istep06/call_host_voltage_config.C
+index 060e7eb..5447c54 100644
+--- a/src/usr/isteps/istep06/call_host_voltage_config.C
++++ b/src/usr/isteps/istep06/call_host_voltage_config.C
+@@ -483,6 +483,12 @@ void* call_host_voltage_config( void *io_pArgs )
+                         continue;
+                     }
+ 
++                    //Due to mismatched power sorts in MFG for op910 ONLY
++                    //-- ignore this check.  Note that this relies on actual
++                    //WOF tables to be the same, parts run the same, just
++                    //the VPD is messed up
++#if 0
++
+                     // All of the buckets should report the same Sort Power
+                     if( (l_powerModeNom != l_voltageData.SortPowerNorm) ||
+                         (l_powerModeTurbo != l_voltageData.SortPowerTurbo) )
+@@ -531,6 +537,7 @@ void* call_host_voltage_config( void *io_pArgs )
+ 
+                         continue;
+                     }
++#endif
+ 
+                     // Floor frequency is the maximum of the Power Save Freqs
+                     l_floorFreq =
+-- 
+1.8.2.2
+

@@ -1,0 +1,65 @@
+From 87e9c4b09fad5a58f82d8a3dcac9e2715112eb45 Mon Sep 17 00:00:00 2001
+From: Nick Bofferding <bofferdn@us.ibm.com>
+Date: Thu, 30 Nov 2017 10:30:10 -0600
+Subject: [PATCH] Secure Boot: Temporarily whitelist various registers to
+ resolve blacklist issues
+
+Change-Id: Ia467db2a17581b55945cdad2d74a3aaff7ffa210
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/50201
+Tested-by: FSP CI Jenkins <fsp-CI-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Michael Baiocchi <mbaiocch@us.ibm.com>
+Reviewed-by: SANTOSH BALASUBRAMANIAN <sbalasub@in.ibm.com>
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: PPE CI <ppe-ci+hostboot@us.ibm.com>
+Reviewed-by: Sachin Gupta <sgupta2m@in.ibm.com>
+Reviewed-by: Jennifer A. Stofer <stofer@us.ibm.com>
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/50215
+---
+ .../p9/security/p9_security_white_black_list.csv   | 34 ++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/src/import/chips/p9/security/p9_security_white_black_list.csv b/src/import/chips/p9/security/p9_security_white_black_list.csv
+index 8027bae..6ba8bfe 100644
+--- a/src/import/chips/p9/security/p9_security_white_black_list.csv
++++ b/src/import/chips/p9/security/p9_security_white_black_list.csv
+@@ -841,3 +841,37 @@ Version,Chiplet,Base Address,Chiplet Id - range,User,Register Name,Description/U
+ ,,0x000A1006,0x00,DUMP,,Switch PIB I2C masters ,write_whitelist,
+ ,,0x000A2006,0x00,DUMP,,Switch PIB I2C masters ,write_whitelist,
+ ,,0x000A3006,0x00,DUMP,,Switch PIB I2C masters ,write_whitelist,
++,XBUS,0x0601103F,0x06,HBFW,General XBUS indirect SCOM registers,p9_xbus_g0_scom.C,write_whitelist,
++,XBUS,0x0601143F,0x06,HBFW,General XBUS indirect SCOM registers,p9_xbus_g1_scom.C,write_whitelist,
++,TP,0x00090000,0x00,HBFW,Alter/Display Control Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,TP,0x00090001,0x00,HBFW,Alter/Display Command Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,TP,0x00090002,0x00,HBFW,Alter/Display Special Option Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05011C32,0x05,HBFW,PowerBus EXTFIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05011C34,0x05,HBFW,PowerBus EXTFIR Action 0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05011C35,0x05,HBFW,PowerBus EXTFIR Action 1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05013403,0x05,HBFW,PowerBus PBEN IOX Domain FIR0 Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05013406,0x05,HBFW,PowerBus PBEN IOX Domain FIR Action 0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05013407,0x05,HBFW,PowerBus PBEN IOX Domain FIR Action 1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,Nest 3,0x05013805,0x05,HBFW,PowerBus PBES IOO Domain FIR0 Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011003,0x06,HBFW,Pervasive FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011006,0x06,HBFW,Fault Isolation Action0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011007,0x06,HBFW,Fault Isolation Action1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011403,0x06,HBFW,Pervasive FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011406,0x06,HBFW,Fault Isolation Action0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011407,0x06,HBFW,Fault Isolation Action1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C03,0x06,HBFW,PowerBus ELL FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C06,0x06,HBFW,PowerBus ELL FIR Action 0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C07,0x06,HBFW,PowerBus ELL FIR Action 1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C0A,0x06,HBFW,PowerBus ELL Config Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C18,0x06,HBFW,PowerBus ELL Replay Threshold Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06011C19,0x06,HBFW,PowerBus ELL SL ECC Threshold Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06012003,0x06,HBFW,PowerBus ELL FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06012006,0x06,HBFW,PowerBus ELL FIR Action 0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06012007,0x06,HBFW,PowerBus ELL FIR Action 1 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x0601200A,0x06,HBFW,PowerBus ELL Config Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06012018,0x06,HBFW,PowerBus ELL Replay Threshold Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x06012019,0x06,HBFW,PowerBus ELL SL ECC Threshold Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,XBUS,0x060F0042,0x06,HBFW,NET CTRL0 Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,OBUS,0x09010805,0x09,HBFW,PowerBus OLL FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++,OBUS,0x0C010805,0x0C,HBFW,PowerBus OLL FIR Mask Register,Workaround to be removed by @TODO SW409746,write_whitelist,
++
+-- 
+2.9.2.windows.1
+

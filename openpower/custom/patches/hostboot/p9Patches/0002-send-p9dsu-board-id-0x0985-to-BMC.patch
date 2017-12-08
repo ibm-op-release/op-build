@@ -1,7 +1,7 @@
-From 4d4f16146f858d7ab0e416b707f59a1ec3503f51 Mon Sep 17 00:00:00 2001
+From dd33e6c5a4cc68547437c22346090247b260e73b Mon Sep 17 00:00:00 2001
 From: jim <jim.yuan@supermicro.com>
 Date: Tue, 18 Apr 2017 10:49:09 -0700
-Subject: [PATCH 3/3] send p9dsu board id 0x0985 to BMC.
+Subject: [PATCH 2/3] send p9dsu board id 0x0985 to BMC.
 
 ---
  src/include/usr/ipmi/ipmiif.H                      |  6 ++++-
@@ -11,10 +11,10 @@ Subject: [PATCH 3/3] send p9dsu board id 0x0985 to BMC.
  4 files changed, 46 insertions(+), 2 deletions(-)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index ea856b7..b035acb 100644
+index 2978a63..b8006cc 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
-@@ -296,7 +296,11 @@ namespace IPMI
+@@ -298,7 +298,11 @@ namespace IPMI
      // user defined power limit from the BMC.
      inline const command_t get_power_limit(void)
      { return std::make_pair(NETFUN_GRPEXT, 0x03); }
@@ -41,10 +41,10 @@ index b652750..e943e8b 100644
  
  #endif
 diff --git a/src/usr/initservice/istepdispatcher/istepdispatcher.C b/src/usr/initservice/istepdispatcher/istepdispatcher.C
-index 8d33084..99a4207 100644
+index 69abb91..9dd3397 100644
 --- a/src/usr/initservice/istepdispatcher/istepdispatcher.C
 +++ b/src/usr/initservice/istepdispatcher/istepdispatcher.C
-@@ -287,6 +287,17 @@ void IStepDispatcher::init(errlHndl_t &io_rtaskRetErrl)
+@@ -354,6 +354,17 @@ void IStepDispatcher::init(errlHndl_t &io_rtaskRetErrl)
              err_ipmi->collectTrace("INITSVC", 1024);
              errlCommit(err_ipmi, INITSVC_COMP_ID );
          }

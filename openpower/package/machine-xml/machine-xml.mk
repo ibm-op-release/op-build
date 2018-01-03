@@ -4,12 +4,8 @@
 ################################################################################
 
 MACHINE_XML_VERSION ?= $(call qstrip,$(BR2_OPENPOWER_MACHINE_XML_VERSION))
-ifeq ($(BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT),y)
-MACHINE_XML_SITE = $(call github,open-power,$(BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT_VALUE),$(MACHINE_XML_VERSION))
-else ifeq ($(BR2_OPENPOWER_MACHINE_XML_CUSTOM_GIT),y)
+MACHINE_XML_SITE = https://scm.raptorcs.com/scm/git/talos-xml
 MACHINE_XML_SITE_METHOD = git
-MACHINE_XML_SITE = $(BR2_OPENPOWER_MACHINE_XML_CUSTOM_GIT_VALUE)
-endif
 
 MACHINE_XML_LICENSE = Apache-2.0
 MACHINE_XML_LICENSE_FILES = LICENSE

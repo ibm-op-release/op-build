@@ -4,7 +4,8 @@
 #
 ################################################################################
 
-SB_SIGNING_FRAMEWORK_SITE ?= $(call github,open-power,sb-signing-framework,$(SB_SIGNING_FRAMEWORK_VERSION))
+SB_SIGNING_FRAMEWORK_SITE ?= https://scm.raptorcs.com/scm/git/sb-signing-framework
+SB_SIGNING_FRAMEWORK_SITE_METHOD = git
 
 SB_SIGNING_FRAMEWORK_LICENSE = Apache-2.0
 SB_SIGNING_FRAMEWORK_LICENSE_FILES = LICENSE

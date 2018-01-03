@@ -5,7 +5,8 @@
 ################################################################################
 
 PPE42_GCC_VERSION ?= c13849780c80d1ed466efbeaabcc663fe48cd87d
-PPE42_GCC_SITE ?= $(call github,open-power,ppe42-gcc,$(PPE42_GCC_VERSION))
+PPE42_GCC_SITE ?= https://scm.raptorcs.com/scm/git/ppe42-gcc
+PPE42_GCC_SITE_METHOD = git
 PPE42_GCC_LICENSE = GPLv3+
 
 PPE42_GCC_DEPENDENCIES = ppe42-binutils gmp mpfr mpc

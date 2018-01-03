@@ -4,7 +4,8 @@
 #
 ################################################################################
 
-SB_SIGNING_UTILS_SITE ?= $(call github,open-power,sb-signing-utils,$(SB_SIGNING_UTILS_VERSION))
+SB_SIGNING_UTILS_SITE ?= https://scm.raptorcs.com/scm/git/sb-signing-utils
+SB_SIGNING_UTILS_SITE_METHOD = git
 
 SB_SIGNING_UTILS_LICENSE = Apache-2.0
 SB_SIGNING_UTILS_LICENSE_FILES = LICENSE

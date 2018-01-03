@@ -8,7 +8,8 @@ OCC_VERSION_BRANCH_MASTER_P8 ?= 28f2cec690b7f19548ce860a8820f519e6c39a6a
 OCC_VERSION_BRANCH_MASTER ?= fce2d94a9bc94e9468bce173b11fd0b96ef36c1f
 
 OCC_VERSION ?= $(if $(BR2_OPENPOWER_POWER9),$(OCC_VERSION_BRANCH_MASTER),$(OCC_VERSION_BRANCH_MASTER_P8))
-OCC_SITE ?= $(call github,open-power,occ,$(OCC_VERSION))
+OCC_SITE = https://scm.raptorcs.com/scm/git/talos-occ
+OCC_SITE_METHOD = git
 OCC_LICENSE = Apache-2.0
 
 OCC_LICENSE_FILES_P8 = src/LICENSE
@@ -23,7 +24,7 @@ OCC_STAGING_DIR = $(STAGING_DIR)/occ
 OCC_IMAGE_BIN_PATH = $(if $(BR2_OPENPOWER_POWER9),obj/image.bin,src/image.bin)
 
 OCC_DEPENDENCIES_P8 = host-binutils host-p8-pore-binutils
-OCC_DEPENDENCIES_P9 = host-binutils host-ppe42-gcc hostboot-binaries
+OCC_DEPENDENCIES_P9 = host-binutils host-ppe42-gcc
 OCC_DEPENDENCIES ?= $(if $(BR2_OPENPOWER_POWER9),$(OCC_DEPENDENCIES_P9),$(OCC_DEPENDENCIES_P8))
 
 define OCC_APPLY_PATCHES

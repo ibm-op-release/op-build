@@ -6,7 +6,8 @@
 
 SKIBOOT_VERSION = $(call qstrip,$(BR2_SKIBOOT_VERSION))
 
-SKIBOOT_SITE = $(call github,open-power,skiboot,$(SKIBOOT_VERSION))
+SKIBOOT_SITE = https://scm.raptorcs.com/scm/git/talos-skiboot
+SKIBOOT_SITE_METHOD = git
 SKIBOOT_LICENSE = Apache-2.0
 SKIBOOT_LICENSE_FILES = LICENCE
 SKIBOOT_INSTALL_IMAGES = YES

@@ -1,0 +1,42 @@
+From 6143c4f1f0978feb2195b6425f5916b2c89ca8ee Mon Sep 17 00:00:00 2001
+From: Stewart Smith <stewart@linux.vnet.ibm.com>
+Date: Thu, 16 Nov 2017 16:28:29 -0600
+Subject: [PATCH 1/4] OCC: Increase max pstate check on P9 to 255
+
+This has changed from P8, we can now have > 127 pstates.
+
+This was observed on Boston during WoF bringup.
+
+Reported-by: Minda Wei <minda.wei@ibm.com>
+Signed-off-by: Stewart Smith <stewart@linux.vnet.ibm.com>
+---
+ hw/occ.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hw/occ.c b/hw/occ.c
+index 78c6a6a..8ad0dfe 100644
+--- a/hw/occ.c
++++ b/hw/occ.c
+@@ -612,13 +612,15 @@ static bool add_cpu_pstate_properties(int *pstate_nom)
+ 	nr_pstates = labs(pmax - pmin) + 1;
+ 	prlog(PR_DEBUG, "OCC: Version %x Min %d Nom %d Max %d Nr States %d\n",
+ 	      occ_data->version, pmin, pnom, pmax, nr_pstates);
+-	if (nr_pstates <= 1 || nr_pstates > 128) {
++	if ((occ_data->version == 0x90 && (nr_pstates <= 1)) ||
++	    (occ_data->version <= 0x02 &&
++	     (nr_pstates <= 1 || nr_pstates > 128))) {
+ 		/**
+ 		 * @fwts-label OCCInvalidPStateRange
+ 		 * @fwts-advice The number of pstates is outside the valid
+-		 * range (currently <=1 or > 128), so OPAL has not added
+-		 * pstates to the device tree. This means that OCC (On Chip
+-		 * Controller) will be non-functional. This means
++		 * range (currently <=1 or > 128 on p8, >255 on P9), so OPAL
++		 * has not added pstates to the device tree. This means that
++		 * OCC (On Chip Controller) will be non-functional. This means
+ 		 * that CPU idle states and CPU frequency scaling
+ 		 * will not be functional.
+ 		 */
+-- 
+2.9.2.windows.1
+

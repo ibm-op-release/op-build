@@ -1,0 +1,362 @@
+From dff9ada4ff01cb0052780e7beb60bcea89df1cd2 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:27 -0200
+Subject: [PATCH 04/19] hdata/tpmrel.c: register CVC services during HDAT
+ parsing
+
+This registers the address range of the Container-Verification-Code
+(CVC) and then registers each CVC service provided. The offset of
+each service is checked to make sure that it is not out of the CVC
+address range.
+
+The hostboot reserved memory that stores the CVC is identified by
+parsing the msvpd_hb_reserved_mem HDAT structure. In order to register
+its address range, we call the cvc_register() libstb function.
+
+The CVC services provided are identified by parsing the hash_and_verify
+HDAT structure. In order to register them, we call the
+cvc_service_register() libstb function.
+
+This also updates the hdat_to_dt unit test adding one stub for each
+libstb function called.
+
+Since skiboot is the only consumer for the CVC services, this patch
+doesn't add them to the device tree.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ hdata/spira.h       |  12 ++++++
+ hdata/test/stubs.c  |   2 +
+ hdata/tpmrel.c      |  90 +++++++++++++++++++++++++++++++++++++++++
+ libstb/Makefile.inc |   2 +-
+ libstb/cvc.c        | 114 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ libstb/cvc.h        |  29 +++++++++++++
+ 6 files changed, 248 insertions(+), 1 deletion(-)
+ create mode 100644 libstb/cvc.c
+ create mode 100644 libstb/cvc.h
+
+diff --git a/hdata/spira.h b/hdata/spira.h
+index 88fd2bf224b3..328fb8db96e4 100644
+--- a/hdata/spira.h
++++ b/hdata/spira.h
+@@ -528,6 +528,8 @@ struct msvpd_trace {
+ /* Idata index 5: Hostboot reserved memory address range */
+ #define MSVPD_IDATA_HB_RESERVED_MEM	5
+ struct msvpd_hb_reserved_mem {
++#define MSVPD_HBRMEM_RANGE_TYPE	PPC_BITMASK32(0,7)
++#define HBRMEM_CONTAINER_VERIFICATION_CODE 	0x3
+ 	__be32		type_instance;
+ 	__be64		start_addr;
+ 	__be64		end_addr;
+@@ -1258,6 +1260,16 @@ struct secureboot_tpm_info {
+ 	__be32 drtm_log_size;
+ } __packed;
+ 
++/* Idata index 2: Hash and Verification Function Offsets Array */
++#define TPMREL_IDATA_HASH_VERIF_OFFSETS 	2
++
++struct hash_and_verification {
++	__be32 type;
++	__be32 version;
++	__be32 dbob_id;
++	__be32 offset;
++} __packed;
++
+ static inline const char *cpu_state(u32 flags)
+ {
+ 	switch ((flags & CPU_ID_VERIFY_MASK) >> CPU_ID_VERIFY_SHIFT) {
+diff --git a/hdata/test/stubs.c b/hdata/test/stubs.c
+index abeb832d2abc..ce1384dbb414 100644
+--- a/hdata/test/stubs.c
++++ b/hdata/test/stubs.c
+@@ -117,4 +117,6 @@ NOOP_STUB(mem_reserve_hwbuf);
+ NOOP_STUB(add_chip_dev_associativity);
+ NOOP_STUB(enable_mambo_console);
+ NOOP_STUB(backtrace);
++NOOP_STUB(cvc_register);
++NOOP_STUB(cvc_service_register);
+ 
+diff --git a/hdata/tpmrel.c b/hdata/tpmrel.c
+index 0aaa70ba7b5c..11ed3cee89e4 100644
+--- a/hdata/tpmrel.c
++++ b/hdata/tpmrel.c
+@@ -20,6 +20,8 @@
+ 
+ #include <skiboot.h>
+ #include <device.h>
++#include <inttypes.h>
++#include <libstb/cvc.h>
+ 
+ #include "spira.h"
+ #include "hdata.h"
+@@ -72,6 +74,93 @@ static void tpmrel_add_firmware_event_log(const struct HDIF_common_hdr *hdif_hdr
+ 	}
+ }
+ 
++static const struct msvpd_hb_reserved_mem *get_cvc_reserved_memory(void)
++{
++
++	const struct msvpd_hb_reserved_mem *hb_resv_mem;
++	const struct HDIF_common_hdr *ms_vpd;
++	uint32_t type;
++	int count, i;
++
++	ms_vpd = get_hdif(&spira.ntuples.ms_vpd, MSVPD_HDIF_SIG);
++
++	if (!ms_vpd) {
++		prlog(PR_ERR, "MS VPD invalid\n");
++		return NULL;
++	}
++
++	count = HDIF_get_iarray_size(ms_vpd, MSVPD_IDATA_HB_RESERVED_MEM);
++	if (count <= 0) {
++		prlog(PR_ERR, "no hostboot reserved memory found\n");
++		return NULL;
++	}
++
++	for (i = 0; i < count; i++) {
++		hb_resv_mem = HDIF_get_iarray_item(ms_vpd,
++						   MSVPD_IDATA_HB_RESERVED_MEM,
++						   i, NULL);
++		if (!CHECK_SPPTR(hb_resv_mem))
++			continue;
++
++		type = be32_to_cpu(hb_resv_mem->type_instance);
++		type = GETFIELD(MSVPD_HBRMEM_RANGE_TYPE, type);
++
++		/* Reserved memory for the Container Verification Code? */
++		if (type == HBRMEM_CONTAINER_VERIFICATION_CODE)
++			return hb_resv_mem;
++	}
++
++	return NULL;
++}
++
++#define HRMOR_BIT (1ul << 63)
++
++static void tpmrel_cvc_init(struct HDIF_common_hdr *hdif_hdr)
++{
++	const struct hash_and_verification *hv;
++	const struct msvpd_hb_reserved_mem *cvc_resv_mem;
++	uint32_t type, version, offset;
++	uint64_t start_addr, end_addr;
++	int count, i;
++
++	cvc_resv_mem = get_cvc_reserved_memory();
++
++	if (!cvc_resv_mem) {
++		prlog(PR_ERR, "CVC reserved memory not found\n");
++		return;
++	}
++
++	start_addr = be64_to_cpu(cvc_resv_mem->start_addr);
++	start_addr &= ~HRMOR_BIT;
++	end_addr = be64_to_cpu(cvc_resv_mem->end_addr);
++	end_addr &= ~HRMOR_BIT;
++	prlog(PR_DEBUG, "Found CVC at 0x%"PRIx64"...0x%"PRIx64"\n",
++	      start_addr, end_addr);
++	cvc_register(start_addr, end_addr);
++	/*
++	 * Initialize each service provided by the container verification code
++	 */
++	count = HDIF_get_iarray_size(hdif_hdr, TPMREL_IDATA_HASH_VERIF_OFFSETS);
++	if (count <= 0 ) {
++		prlog(PR_ERR, "no CVC service found\n");
++		return;
++	}
++
++	for (i = 0; i < count; i++) {
++
++		hv = HDIF_get_iarray_item(hdif_hdr,
++					  TPMREL_IDATA_HASH_VERIF_OFFSETS,
++					  i, NULL);
++		type = be32_to_cpu(hv->type);
++		version = be32_to_cpu(hv->version);
++		offset = be32_to_cpu(hv->offset);
++
++		prlog(PR_DEBUG, "Found CVC service. type=0x%x version=%d "
++		      "offset=0x%x\n", type, version, offset);
++		cvc_service_register(type, version, offset);
++	}
++}
++
+ void node_stb_parse(void)
+ {
+ 	struct HDIF_common_hdr *hdif_hdr;
+@@ -87,4 +176,5 @@ void node_stb_parse(void)
+ 	}
+ 
+ 	tpmrel_add_firmware_event_log(hdif_hdr);
++	tpmrel_cvc_init(hdif_hdr);
+ }
+diff --git a/libstb/Makefile.inc b/libstb/Makefile.inc
+index 64be4d678e7a..010e4b16f3ad 100644
+--- a/libstb/Makefile.inc
++++ b/libstb/Makefile.inc
+@@ -4,7 +4,7 @@ LIBSTB_DIR = libstb
+ 
+ SUBDIRS += $(LIBSTB_DIR)
+ 
+-LIBSTB_SRCS = container.c rom.c tpm_chip.c stb.c
++LIBSTB_SRCS = container.c rom.c tpm_chip.c stb.c cvc.c
+ LIBSTB_OBJS = $(LIBSTB_SRCS:%.c=%.o)
+ LIBSTB = $(LIBSTB_DIR)/built-in.o
+ 
+diff --git a/libstb/cvc.c b/libstb/cvc.c
+new file mode 100644
+index 000000000000..ebf0ecf0385c
+--- /dev/null
++++ b/libstb/cvc.c
+@@ -0,0 +1,114 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * 	http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef pr_fmt
++#define pr_fmt(fmt) "STB: " fmt
++#endif
++
++#include <skiboot.h>
++#include "cvc.h"
++
++struct cvc_service {
++	int id;
++	uint64_t addr;    /* base_addr + offset */
++	uint32_t version;
++	struct list_node link;
++};
++
++struct container_verification_code {
++	uint64_t start_addr;
++	uint64_t end_addr;
++	struct list_head service_list;
++};
++
++static struct {
++	enum cvc_service_id id;
++	const char *name;
++} cvc_sevice_map[] = {
++	{ CVC_SHA512_SERVICE, "sha512" },
++	{ CVC_VERIFY_SERVICE, "verify" },
++};
++
++static struct container_verification_code *cvc = NULL;
++
++static struct cvc_service *cvc_find_service(enum cvc_service_id id)
++{
++	struct cvc_service *service;
++	if (!cvc)
++		return NULL;
++
++	list_for_each(&cvc->service_list, service, link) {
++		if (service->id == id)
++			return service;
++	}
++	return NULL;
++}
++
++static const char *cvc_get_service_name(enum cvc_service_id id)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(cvc_sevice_map); i++) {
++		if (cvc_sevice_map[i].id == id)
++			return cvc_sevice_map[i].name;
++	}
++	return NULL;
++}
++
++void cvc_register(uint64_t start_addr, uint64_t end_addr)
++{
++	if (cvc)
++		return;
++
++	cvc = malloc(sizeof(struct container_verification_code));
++	assert(cvc);
++	cvc->start_addr = start_addr;
++	cvc->end_addr = end_addr;
++	list_head_init(&cvc->service_list);
++}
++
++void cvc_service_register(uint32_t id, uint32_t version, uint32_t offset)
++{
++	struct cvc_service *service;
++	const char *name;
++
++	if (!cvc)
++		return;
++
++	/* Service already registered? */
++	if (cvc_find_service(id))
++		return;
++
++	if (cvc->start_addr + offset > cvc->end_addr) {
++		prlog(PR_WARNING, "CVC offset %x out of range, "
++		      "id=0x%x\n", offset, id);
++		return;
++	}
++
++	name = cvc_get_service_name(id);
++	if (!name) {
++		prlog(PR_ERR, "CVC service 0x%x not supported\n", id);
++		return;
++	}
++
++	service = malloc(sizeof(struct cvc_service));
++	assert(service);
++	service->id = id;
++	service->version = version;
++	service->addr = cvc->start_addr + offset;
++	list_add_tail(&cvc->service_list, &service->link);
++	prlog(PR_INFO, "CVC-%s service found @0x%llx\n", name, service->addr);
++}
+diff --git a/libstb/cvc.h b/libstb/cvc.h
+new file mode 100644
+index 000000000000..8b5700c48f2d
+--- /dev/null
++++ b/libstb/cvc.h
+@@ -0,0 +1,29 @@
++/* Copyright 2013-2017 IBM Corp.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++ * implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef __CVC_H
++#define __CVC_H
++
++/* As defined in the HDAT spec version 10.5e */
++enum cvc_service_id {
++	CVC_SHA512_SERVICE = 0x00,
++	CVC_VERIFY_SERVICE = 0x01,
++};
++
++void cvc_register(uint64_t start_addr, uint64_t end_addr);
++void cvc_service_register(uint32_t type, uint32_t version, uint32_t offset);
++
++#endif /* __CVC_H */
+-- 
+2.13.6
+

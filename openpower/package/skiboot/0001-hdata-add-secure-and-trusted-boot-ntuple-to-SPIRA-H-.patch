@@ -1,0 +1,69 @@
+From b58f7fe4e2d55d55665459dfb28bfc67aa9f2574 Mon Sep 17 00:00:00 2001
+From: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+Date: Sat, 11 Nov 2017 15:28:24 -0200
+Subject: [PATCH 01/19] hdata: add secure and trusted boot ntuple to SPIRA-H/S
+
+This adds to spira-h/s the overall tpmrel structure, which defines
+secure and trusted boot related data. The internal data structures are
+added in subsequent patches.
+
+Signed-off-by: Claudio Carvalho <cclaudio@linux.vnet.ibm.com>
+---
+ hdata/spira.c | 1 +
+ hdata/spira.h | 7 ++++---
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/hdata/spira.c b/hdata/spira.c
+index 11d3ade7230b..936fadcf52f3 100644
+--- a/hdata/spira.c
++++ b/hdata/spira.c
+@@ -1551,6 +1551,7 @@ static void fixup_spira(void)
+ 	spira.ntuples.proc_chip = spiras->ntuples.proc_chip;
+ 	spira.ntuples.hs_data = spiras->ntuples.hs_data;
+ 	spira.ntuples.ipmi_sensor = spiras->ntuples.ipmi_sensor;
++	spira.ntuples.node_stb_data = spiras->ntuples.node_stb_data;
+ }
+ 
+ int parse_hdat(bool is_opal)
+diff --git a/hdata/spira.h b/hdata/spira.h
+index 49acf5c2c954..190afad1b9d9 100644
+--- a/hdata/spira.h
++++ b/hdata/spira.h
+@@ -40,7 +40,7 @@ struct spira_ntuple {
+ 	__be64		padding;
+ } __packed;
+ 
+-#define SPIRA_NTUPLES_COUNT	0x18
++#define SPIRA_NTUPLES_COUNT	0x19
+ 
+ struct spira_ntuples {
+ 	struct HDIF_array_hdr	array_hdr;
+@@ -69,6 +69,7 @@ struct spira_ntuples {
+ 	struct spira_ntuple	proc_chip;		/* 0x300 */
+ 	struct spira_ntuple	hs_data;		/* 0x320 */
+ 	struct spira_ntuple	ipmi_sensor;		/* 0x360 */
++	struct spira_ntuple	node_stb_data;		/* 0x380 */
+ };
+ 
+ struct spira {
+@@ -82,7 +83,7 @@ struct spira {
+ 	 *
+ 	 * According to FSP engineers, this is an okay thing to do.
+ 	 */
+-	u8			reserved[0xa0];
++	u8			reserved[0x80];
+ } __packed __align(0x100);
+ 
+ extern struct spira spira;
+@@ -146,7 +147,7 @@ struct spiras_ntuples {
+ 	struct spira_ntuple	hs_data;		/* 0x200 */
+ 	struct spira_ntuple	hbrt_data;		/* 0x220 */
+ 	struct spira_ntuple	ipmi_sensor;		/* 0x240 */
+-	struct spira_ntuple	node_data;		/* 0x260 */
++	struct spira_ntuple	node_stb_data;		/* 0x260 */
+ };
+ 
+ struct spiras {
+-- 
+2.13.6
+

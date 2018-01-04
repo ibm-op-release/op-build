@@ -1,14 +1,14 @@
-From 26e212d1bceb7ea74f980f0580d03001bffbc23b Mon Sep 17 00:00:00 2001
+From 18e3cae68e1d9921407cdf3dcd40d5c47fbc09f2 Mon Sep 17 00:00:00 2001
 From: jim <jim.yuan@supermicro.com>
-Date: Fri, 15 Sep 2017 09:31:05 -0700
+Date: Wed, 3 Jan 2018 18:24:16 -0800
 Subject: [PATCH] bootloader kernel size to 24 MB.
 
 ---
- p9Layouts/defaultPnorLayout_64.xml | 32 ++++++++++++++++----------------
- 1 file changed, 16 insertions(+), 16 deletions(-)
+ p9Layouts/defaultPnorLayout_64.xml | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/p9Layouts/defaultPnorLayout_64.xml b/p9Layouts/defaultPnorLayout_64.xml
-index 8547494..a52b240 100644
+index 8547494..4480e6a 100644
 --- a/p9Layouts/defaultPnorLayout_64.xml
 +++ b/p9Layouts/defaultPnorLayout_64.xml
 @@ -216,10 +216,10 @@ Layout Description
@@ -149,6 +149,15 @@ index 8547494..a52b240 100644
 +        <physicalOffset>0x34BC000</physicalOffset>
          <physicalRegionSize>0x4000</physicalRegionSize>
          <side>A</side>
+         <sha512Version/>
+@@ -369,7 +369,7 @@ Layout Description
+     <section>
+         <description>HDAT binary data (16KB)</description>
+         <eyeCatch>HDAT</eyeCatch>
+-        <physicalOffset>0x2BC6000</physicalOffset>
++        <physicalOffset>0x34C0000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>sideless</side>
          <sha512Version/>
 -- 
 2.9.2.windows.1

@@ -1,0 +1,197 @@
+From d09c2b73792e29795df1fb30749bb86c64cf843e Mon Sep 17 00:00:00 2001
+From: Dean Sanner <dsanner@us.ibm.com>
+Date: Wed, 24 Jan 2018 06:50:30 -0600
+Subject: [PATCH v1] Update Init flags to match latest HCODE image
+
+  - Match version 32 of init setting wiki
+
+Change-Id: I860f0bdd68bbec7b9fcdb8aa08ac2fc9c5efd54b
+---
+ src/usr/hdat/hdatiplparms.C | 50 +++++++++++++++++++++++++++++++-----
+ src/usr/hdat/hdatiplparms.H | 62 ++++++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 98 insertions(+), 14 deletions(-)
+
+diff --git a/src/usr/hdat/hdatiplparms.C b/src/usr/hdat/hdatiplparms.C
+index da20aaa..a7d1647 100755
+--- a/src/usr/hdat/hdatiplparms.C
++++ b/src/usr/hdat/hdatiplparms.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2016,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2016,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -536,25 +536,61 @@ static errlHndl_t hdatGetPortInfo(HDAT::hdatHDIFDataArray_t &o_portArrayHdr,
+ static void hdatGetFeatureFlagArray(const hdatIplpFeatureFlagSetting_t * o_featureFlagArr[],
+                                     uint32_t & o_size)
+ {
++    TARGETING::Target *l_pSysTarget = NULL;
++    (void) TARGETING::targetService().getTopLevelTarget(l_pSysTarget);
++
++    if(l_pSysTarget == NULL)
++    {
++        HDAT_ERR("hdatGetSystemParamters::Top Level Target not found");
++        assert(l_pSysTarget != NULL);
++    }
++
++    uint32_t l_risk = l_pSysTarget->getAttr<ATTR_RISK_LEVEL>();
++
+     //Default to Nimbus DD2.2 settings (DD1.0 doesn't matter) and these are current
+     //settings for cumulus
+-    *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_22;
+-    o_size = sizeof(hdatIplpFeatureFlagSettingsArray_22);
++    if(l_risk)
++    {
++        *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_22_risk100;
++        o_size = sizeof(hdatIplpFeatureFlagSettingsArray_22_risk100);
++    }
++    else
++    {
++        *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_22;
++        o_size = sizeof(hdatIplpFeatureFlagSettingsArray_22);
++    }
+ 
+     //Modify for Nimubs DD2.0 and DD2.1
++    //Note that depending on risk level a different table is used
+     PVR_t l_pvr( mmio_pvr_read() & 0xFFFFFFFF );
+     if(l_pvr.chipType == PVR_t::NIMBUS_CHIP)
+     {
+         if(l_pvr.getDDLevel() == 0x20)
+         {
+-            *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_20;
+-            o_size = sizeof(hdatIplpFeatureFlagSettingsArray_20);
++            if(l_risk)
++            {
++                *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_20_risk100;
++                o_size = sizeof(hdatIplpFeatureFlagSettingsArray_20_risk100);
++            }
++            else
++            {
++                *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_20;
++                o_size = sizeof(hdatIplpFeatureFlagSettingsArray_20);
++            }
+ 
+         }
+         else if (l_pvr.getDDLevel() == 0x21)
+         {
+-            *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_21;
+-            o_size = sizeof(hdatIplpFeatureFlagSettingsArray_21);
++            if(l_risk)
++            {
++                *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_21_risk100;
++                o_size = sizeof(hdatIplpFeatureFlagSettingsArray_21_risk100);
++            }
++            else
++            {
++                *o_featureFlagArr = hdatIplpFeatureFlagSettingsArray_21;
++                o_size = sizeof(hdatIplpFeatureFlagSettingsArray_21);
++            }
+ 
+         }
+     }
+diff --git a/src/usr/hdat/hdatiplparms.H b/src/usr/hdat/hdatiplparms.H
+index c644f1c..c6dc084 100755
+--- a/src/usr/hdat/hdatiplparms.H
++++ b/src/usr/hdat/hdatiplparms.H
+@@ -279,22 +279,39 @@ struct hdatIplpFeatureFlagSetting_t
+ // Agreed strings and settings of different feature flags
+ const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_20[]=
+ {
+-{"tm-suspend-mode",                             0x8000000000000000},
+-{"inst-thread-reconfig-control-trig0-1",        0x8000000000000000},
+-{"inst-l1d-flush-trig2",                        0x8000000000000000},
++{"tm-suspend-mode",                             0x0000000000000000},
++{"inst-thread-reconfig-control-trig0-1",        0x0000000000000000},
++{"inst-l1d-flush-trig2",                        0x0000000000000000},
+ {"inst-l1d-flush-ori30,30,0",                   0x0000000000000000},
+ {"inst-spec-barrier-ori31,31,0",                0x8000000000000000},
+ {"needs-l1d-flush-msr-hv-1-to-0",               0x8000000000000000},
+ {"needs-l1d-flush-msr-pr-0-to-1",               0x8000000000000000},
+ {"needs-spec-barrier-for-bound-checks",         0x8000000000000000},
+ {"fw-l1d-thread-split",                         0x8000000000000000},
++{"fw-bcctrl-serialized",                        0x8000000000000000},
++{"speculation-policy-favor-security",           0x8000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
++
++const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_20_risk100[]=
++{
++{"tm-suspend-mode",                             0x0000000000000000},
++{"inst-thread-reconfig-control-trig0-1",        0x0000000000000000},
++{"inst-l1d-flush-trig2",                        0x0000000000000000},
++{"inst-l1d-flush-ori30,30,0",                   0x0000000000000000},
++{"inst-spec-barrier-ori31,31,0",                0x0000000000000000},
++{"needs-l1d-flush-msr-hv-1-to-0",               0x0000000000000000},
++{"needs-l1d-flush-msr-pr-0-to-1",               0x0000000000000000},
++{"needs-spec-barrier-for-bound-checks",         0x0000000000000000},
++{"fw-l1d-thread-split",                         0x0000000000000000},
+ {"fw-bcctrl-serialized",                        0x0000000000000000},
+-{"speculation-policy-favor-security",           0x8000000000000000}};
++{"speculation-policy-favor-security",           0x0000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
++
+ 
+ const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_21[]=
+ {
+ {"tm-suspend-mode",                             0x0000000000000000},
+-{"inst-thread-reconfig-control-trig0-1",        0x8000000000000000},
++{"inst-thread-reconfig-control-trig0-1",        0x0000000000000000},
+ {"inst-l1d-flush-trig2",                        0x0000000000000000},
+ {"inst-l1d-flush-ori30,30,0",                   0x0000000000000000},
+ {"inst-spec-barrier-ori31,31,0",                0x8000000000000000},
+@@ -302,8 +319,24 @@ const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_21[]=
+ {"needs-l1d-flush-msr-pr-0-to-1",               0x8000000000000000},
+ {"needs-spec-barrier-for-bound-checks",         0x8000000000000000},
+ {"fw-l1d-thread-split",                         0x8000000000000000},
++{"fw-bcctrl-serialized",                        0x8000000000000000},
++{"speculation-policy-favor-security",           0x8000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
++
++const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_21_risk100[]=
++{
++{"tm-suspend-mode",                             0x0000000000000000},
++{"inst-thread-reconfig-control-trig0-1",        0x0000000000000000},
++{"inst-l1d-flush-trig2",                        0x0000000000000000},
++{"inst-l1d-flush-ori30,30,0",                   0x0000000000000000},
++{"inst-spec-barrier-ori31,31,0",                0x0000000000000000},
++{"needs-l1d-flush-msr-hv-1-to-0",               0x0000000000000000},
++{"needs-l1d-flush-msr-pr-0-to-1",               0x0000000000000000},
++{"needs-spec-barrier-for-bound-checks",         0x0000000000000000},
++{"fw-l1d-thread-split",                         0x0000000000000000},
+ {"fw-bcctrl-serialized",                        0x0000000000000000},
+-{"speculation-policy-favor-security",           0x8000000000000000}};
++{"speculation-policy-favor-security",           0x0000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
+ 
+ const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_22[]=
+ {
+@@ -317,8 +350,23 @@ const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_22[]=
+ {"needs-spec-barrier-for-bound-checks",         0x8000000000000000},
+ {"fw-l1d-thread-split",                         0x8000000000000000},
+ {"fw-bcctrl-serialized",                        0x8000000000000000},
+-{"speculation-policy-favor-security",           0x8000000000000000}};
++{"speculation-policy-favor-security",           0x8000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
+ 
++const hdatIplpFeatureFlagSetting_t hdatIplpFeatureFlagSettingsArray_22_risk100[]=
++{
++{"tm-suspend-mode",                             0x8000000000000000},
++{"inst-thread-reconfig-control-trig0-1",        0x0000000000000000},
++{"inst-l1d-flush-trig2",                        0x0000000000000000},
++{"inst-l1d-flush-ori30,30,0",                   0x0000000000000000},
++{"inst-spec-barrier-ori31,31,0",                0x0000000000000000},
++{"needs-l1d-flush-msr-hv-1-to-0",               0x0000000000000000},
++{"needs-l1d-flush-msr-pr-0-to-1",               0x0000000000000000},
++{"needs-spec-barrier-for-bound-checks",         0x0000000000000000},
++{"fw-l1d-thread-split",                         0x0000000000000000},
++{"fw-bcctrl-serialized",                        0x0000000000000000},
++{"speculation-policy-favor-security",           0x0000000000000000},
++{"fw-count-cache-disabled",                     0x0000000000000000}};
+ 
+ 
+ #define HDAT_CHIP_TYPE_MURANO                      "MURANO"
+-- 
+1.8.2.2
+

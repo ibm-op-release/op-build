@@ -1,0 +1,138 @@
+From a49816b1a3e8ddcaea4460ca64eda1ad47e2fe58 Mon Sep 17 00:00:00 2001
+From: Raptor Engineering Development Team <support@raptorengineering.com>
+Date: Fri, 2 Feb 2018 07:50:55 -0600
+Subject: drm/ast: Add option to initialize palette on driver load
+
+Non-x86 systems, such as OpenPOWER and ARM machines, do not execute the ASPEED-
+provided option ROM on system start.  As a result, the VGA palette registers
+remain uninitialized, leading to odd colors and generally hard to read output
+on the VGA port.
+
+Add a new module option, ast_resetpalette, to enable loading a linear greyscale
+palette into the VGA RAMDAC.  This option is intended for use by the first Linux
+kernel to load after initial power on, such as the skiroot kernel on OpenPOWER
+systems.
+
+Signed-off-by: Timothy Pearson <tpearson@raptorengineering.com>
+---
+ drivers/gpu/drm/ast/ast_drv.c  |  4 ++++
+ drivers/gpu/drm/ast/ast_drv.h  | 14 ++++++++++++++
+ drivers/gpu/drm/ast/ast_main.c |  8 ++++++++
+ drivers/gpu/drm/ast/ast_mode.c | 14 --------------
+ 4 files changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/ast/ast_drv.c b/drivers/gpu/drm/ast/ast_drv.c
+index 69dab82a3771..8124eaa92ed3 100644
+--- a/drivers/gpu/drm/ast/ast_drv.c
++++ b/drivers/gpu/drm/ast/ast_drv.c
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright 2012 Red Hat Inc.
++ * Copyright 2018 Raptor Engineering, LLC.
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining a
+  * copy of this software and associated documentation files (the
+@@ -34,9 +35,12 @@
+ #include "ast_drv.h"
+ 
+ int ast_modeset = -1;
++int ast_resetpalette = -1;
+ 
+ MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");
++MODULE_PARM_DESC(resetpalette, "Disable/Enable palette reset on load");
+ module_param_named(modeset, ast_modeset, int, 0400);
++module_param_named(resetpalette, ast_resetpalette, int, 0400);
+ 
+ #define PCI_VENDOR_ASPEED 0x1a03
+ 
+diff --git a/drivers/gpu/drm/ast/ast_drv.h b/drivers/gpu/drm/ast/ast_drv.h
+index e6c4cd3dc50e..5e834e466b65 100644
+--- a/drivers/gpu/drm/ast/ast_drv.h
++++ b/drivers/gpu/drm/ast/ast_drv.h
+@@ -383,6 +383,20 @@ static inline int ast_bo_reserve(struct ast_bo *bo, bool no_wait)
+ 	return 0;
+ }
+ 
++static inline void ast_load_palette_index(struct ast_private *ast,
++				     u8 index, u8 red, u8 green,
++				     u8 blue)
++{
++	ast_io_write8(ast, AST_IO_DAC_INDEX_WRITE, index);
++	ast_io_read8(ast, AST_IO_SEQ_PORT);
++	ast_io_write8(ast, AST_IO_DAC_DATA, red);
++	ast_io_read8(ast, AST_IO_SEQ_PORT);
++	ast_io_write8(ast, AST_IO_DAC_DATA, green);
++	ast_io_read8(ast, AST_IO_SEQ_PORT);
++	ast_io_write8(ast, AST_IO_DAC_DATA, blue);
++	ast_io_read8(ast, AST_IO_SEQ_PORT);
++}
++
+ static inline void ast_bo_unreserve(struct ast_bo *bo)
+ {
+ 	ttm_bo_unreserve(&bo->bo);
+diff --git a/drivers/gpu/drm/ast/ast_main.c b/drivers/gpu/drm/ast/ast_main.c
+index dac355812adc..f13329b9a14d 100644
+--- a/drivers/gpu/drm/ast/ast_main.c
++++ b/drivers/gpu/drm/ast/ast_main.c
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright 2012 Red Hat Inc.
++ * Copyright 2018 Raptor Engineering, LLC.
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining a
+  * copy of this software and associated documentation files (the
+@@ -32,6 +33,8 @@
+ #include <drm/drm_fb_helper.h>
+ #include <drm/drm_crtc_helper.h>
+ 
++extern int ast_resetpalette;
++
+ void ast_set_index_reg_mask(struct ast_private *ast,
+ 			    uint32_t base, uint8_t index,
+ 			    uint8_t mask, uint8_t val)
+@@ -483,6 +486,7 @@ int ast_driver_load(struct drm_device *dev, unsigned long flags)
+ 	struct ast_private *ast;
+ 	bool need_post;
+ 	int ret = 0;
++	int index = 0;
+ 
+ 	ast = kzalloc(sizeof(struct ast_private), GFP_KERNEL);
+ 	if (!ast)
+@@ -565,6 +569,10 @@ int ast_driver_load(struct drm_device *dev, unsigned long flags)
+ 	if (ret)
+ 		goto out_free;
+ 
++	if (ast_resetpalette == 1)
++		for (index = 0x00; index < 0x100; index++)
++			ast_load_palette_index(ast, index, index, index, index);
++
+ 	return 0;
+ out_free:
+ 	kfree(ast);
+diff --git a/drivers/gpu/drm/ast/ast_mode.c b/drivers/gpu/drm/ast/ast_mode.c
+index 9555a3542022..9afc4d53bd60 100644
+--- a/drivers/gpu/drm/ast/ast_mode.c
++++ b/drivers/gpu/drm/ast/ast_mode.c
+@@ -46,20 +46,6 @@ static int ast_cursor_set(struct drm_crtc *crtc,
+ static int ast_cursor_move(struct drm_crtc *crtc,
+ 			   int x, int y);
+ 
+-static inline void ast_load_palette_index(struct ast_private *ast,
+-				     u8 index, u8 red, u8 green,
+-				     u8 blue)
+-{
+-	ast_io_write8(ast, AST_IO_DAC_INDEX_WRITE, index);
+-	ast_io_read8(ast, AST_IO_SEQ_PORT);
+-	ast_io_write8(ast, AST_IO_DAC_DATA, red);
+-	ast_io_read8(ast, AST_IO_SEQ_PORT);
+-	ast_io_write8(ast, AST_IO_DAC_DATA, green);
+-	ast_io_read8(ast, AST_IO_SEQ_PORT);
+-	ast_io_write8(ast, AST_IO_DAC_DATA, blue);
+-	ast_io_read8(ast, AST_IO_SEQ_PORT);
+-}
+-
+ static void ast_crtc_load_lut(struct drm_crtc *crtc)
+ {
+ 	struct ast_private *ast = crtc->dev->dev_private;
+-- 
+2.15.1

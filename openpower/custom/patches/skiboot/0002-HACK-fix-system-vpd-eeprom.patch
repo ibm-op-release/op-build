@@ -1,4 +1,4 @@
-From 607f4bb4cb8cb6a7e6711160254a287157b57f25 Mon Sep 17 00:00:00 2001
+From 37c8b5920cfa068906faa06d0a8c87bca803f73a Mon Sep 17 00:00:00 2001
 From: Oliver O'Halloran <oohall@gmail.com>
 Date: Thu, 27 Apr 2017 14:20:21 +1000
 Subject: [PATCH 2/3] HACK: fix system-vpd eeprom

@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OCC_VERSION_BRANCH_OP910 ?= e59834b7249a9efcfa5a3460afbc4fdb8caa47fc
+OCC_VERSION_BRANCH_OP910 ?= 628b9f6f58ad6a7f8f765737ecfda1d3d0e9c59c
 
 OCC_VERSION ?= $(OCC_VERSION_BRANCH_OP910)
 OCC_SITE ?= $(call github,ibm-op-release,occ,$(OCC_VERSION))

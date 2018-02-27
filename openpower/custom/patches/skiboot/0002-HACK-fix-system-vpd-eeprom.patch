@@ -1,4 +1,4 @@
-From 37c8b5920cfa068906faa06d0a8c87bca803f73a Mon Sep 17 00:00:00 2001
+From 89d00ed98ed5009ab530afae1375855012cf40d2 Mon Sep 17 00:00:00 2001
 From: Oliver O'Halloran <oohall@gmail.com>
 Date: Thu, 27 Apr 2017 14:20:21 +1000
 Subject: [PATCH 2/3] HACK: fix system-vpd eeprom
@@ -8,7 +8,7 @@ Subject: [PATCH 2/3] HACK: fix system-vpd eeprom
  1 file changed, 20 insertions(+)
 
 diff --git a/platforms/astbmc/p9dsu.c b/platforms/astbmc/p9dsu.c
-index 834a830..2a380f3 100644
+index 834a8307..2a380f3a 100644
 --- a/platforms/astbmc/p9dsu.c
 +++ b/platforms/astbmc/p9dsu.c
 @@ -24,6 +24,24 @@
@@ -46,5 +46,5 @@ index 834a830..2a380f3 100644
  }
  
 -- 
-2.9.2.windows.1
+2.16.2.windows.1
 

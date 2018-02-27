@@ -1,4 +1,4 @@
-From 89825f9e671132ad28a9afedb427dbd0b36113c5 Mon Sep 17 00:00:00 2001
+From 7da847360d3c3a54de16796a49a19e3618061650 Mon Sep 17 00:00:00 2001
 From: jim <jim.yuan@supermicro.com>
 Date: Thu, 14 Sep 2017 14:45:32 -0700
 Subject: [PATCH 1/3] Modified Patch-change PEC2 on 2nd proc to x16 on certain
@@ -10,7 +10,7 @@ Subject: [PATCH 1/3] Modified Patch-change PEC2 on 2nd proc to x16 on certain
  2 files changed, 65 insertions(+), 1 deletion(-)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index 55546d1..2978a63 100644
+index 55546d13e..2978a6357 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
 @@ -239,6 +239,8 @@ namespace IPMI
@@ -23,7 +23,7 @@ index 55546d1..2978a63 100644
      // Chassis messages
      inline const command_t chassis_power_off(void)
 diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-index ff9075b..7a46798 100644
+index ff9075b4f..7a4679896 100644
 --- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 +++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 @@ -46,6 +46,7 @@
@@ -133,5 +133,5 @@ index ff9075b..7a46798 100644
                  // that means all PHB's on this PEC will be disabled. Lets
                  // trace something out just so someone knows.
 -- 
-2.9.2.windows.1
+2.16.2.windows.1
 

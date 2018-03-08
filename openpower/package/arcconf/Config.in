@@ -1,0 +1,4 @@
+config BR2_PACKAGE_ARCCONF
+	bool "arcconf"
+	help
+	  MicroSemi utilities for SAS controller

@@ -184,12 +184,6 @@ echo -n "	op-build-" >> $$($$(UPPER_CASE_PKG)_VERSION_FILE); \
 	>> $$($$(UPPER_CASE_PKG)_VERSION_FILE); \
 fi
 
-# Include the currently checked-out buildroot version
-echo -n "	buildroot-" >> $$($$(UPPER_CASE_PKG)_VERSION_FILE);
-(git describe --always --dirty || echo "unknown") \
-	| xargs echo \
-	>> $$($$(UPPER_CASE_PKG)_VERSION_FILE); \
-
 
 # Combing subpackage version files into $$($$(UPPER_CASE_PKG)_VERSION_FILE)
 $$(foreach verFile,$$(ALL_SUBPACKAGE_VERSIONS),

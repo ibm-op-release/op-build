@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OPENPOWER_PNOR_VERSION ?= f36b98c6971963edf467f71fa74ce1c22e196bd7
+OPENPOWER_PNOR_VERSION ?= 43c04b16746effcb237933f53050fe66636909a6
 OPENPOWER_PNOR_SITE ?= https://scm.raptorcs.com/scm/git/pnor
 OPENPOWER_PNOR_SITE_METHOD = git
 

@@ -1,0 +1,56 @@
+From 8aaaea00f6bc10406f7fc42cf7a218395f041857 Mon Sep 17 00:00:00 2001
+From: Timothy Pearson <tpearson@raptorengineering.com>
+Date: Sun, 25 Mar 2018 14:59:54 -0500
+Subject: [PATCH] mtd/powernv_flash: Enable partition support
+
+On certain systems, such as the Talos II, skiboot emits a partition
+table for the main PNOR MTD device in the generated device tree.
+
+Allow this partition table to be parsed and the partitions to be
+exposed via MTD device partition nodes.
+---
+ drivers/mtd/devices/powernv_flash.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mtd/devices/powernv_flash.c b/drivers/mtd/devices/powernv_flash.c
+index 26f9feaa5d17..f76045f78221 100644
+--- a/drivers/mtd/devices/powernv_flash.c
++++ b/drivers/mtd/devices/powernv_flash.c
+@@ -2,6 +2,7 @@
+  * OPAL PNOR flash MTD abstraction
+  *
+  * Copyright IBM 2015
++ * Copyright Raptor Engineering, LLC 2018
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -47,6 +48,8 @@ enum flash_op {
+ 	FLASH_OP_ERASE,
+ };
+ 
++static char const * const part_probes[] = { "ofpart", NULL };
++
+ /*
+  * Don't return -ERESTARTSYS if we can't get a token, the MTD core
+  * might have split up the call from userspace and called into the
+@@ -267,9 +270,14 @@ static int powernv_flash_probe(struct platform_device *pdev)
+ 	/*
+ 	 * The current flash that skiboot exposes is one contiguous flash chip
+ 	 * with an ffs partition at the start, it should prove easier for users
+-	 * to deal with partitions or not as they see fit
++	 * to deal with partitions or not as they see fit.  skiboot places this
++	 * on the first MTD partition.
++	 *
++	 * Certain partitions may also be exposed to the host, such as the boot
++	 * kernel firmware partition.
+ 	 */
+-	return mtd_device_register(&data->mtd, NULL, 0);
++	mtd_set_of_node(&data->mtd, dev->of_node);
++	return mtd_device_parse_register(&data->mtd, part_probes, NULL, NULL, 0);
+ }
+ 
+ /**
+-- 
+2.16.1
+
+

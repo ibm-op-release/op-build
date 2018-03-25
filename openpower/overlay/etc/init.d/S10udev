@@ -27,6 +27,7 @@ test -r $UDEV_CONFIG || exit 6
 
 case "$1" in
     start)
+        /sbin/mount_fw_partition
         printf "Populating ${udev_root:-/dev} using udev: "
         printf '\000\000\000\000' > /proc/sys/kernel/hotplug
         $UDEV_BIN -d || (echo "FAIL" && exit 1)

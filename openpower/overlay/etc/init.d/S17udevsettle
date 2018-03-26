@@ -2,6 +2,7 @@
 case "$1" in
     start)
         udevadm settle --timeout=30 || echo "udevadm settle failed"
+        /sbin/signal_linux_start_complete
 	;;
     *)
         exit 1;;

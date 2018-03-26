@@ -1,0 +1,5 @@
+config BR2_PACKAGE_DEVMEM_ASPEED
+	bool "devmem-aspeed"
+	depends on BR2_PACKAGE_BUSYBOX_SHOW_OTHERS
+	help
+	  Simple program to read/write from/to any location in the ASpeed 2400/2500 BMC memory.

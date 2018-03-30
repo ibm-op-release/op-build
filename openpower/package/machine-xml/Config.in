@@ -34,6 +34,11 @@ config BR2_OPENPOWER_MACHINE_XML_CUSTOM_GIT_VALUE
 	string "URL of machine xml repository"
 	depends on BR2_OPENPOWER_MACHINE_XML_CUSTOM_GIT
 
+config BR2_OPENPOWER_MACHINE_XML_GITHUB_ORG_VALUE
+       string "The Github organization name (e.g. open-power)"
+       default "open-power"
+       depends on BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT
+
 config BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT_VALUE
        string "The Github project name (e.g. palmetto-xml)"
        depends on BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT

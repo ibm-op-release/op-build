@@ -3,7 +3,7 @@
 # hostboot
 #
 ################################################################################
-HOSTBOOT_VERSION_BRANCH_OP920 ?= 0be5926ed8adfbc42a5c39c06b1afcb797c7d65b
+HOSTBOOT_VERSION_BRANCH_OP920 ?= 293a8d981da8e2723c34a755868a8dbd81a3801d
 
 HOSTBOOT_VERSION ?= $(HOSTBOOT_VERSION_BRANCH_OP920)
 HOSTBOOT_SITE ?= $(call github,ibm-op-release,hostboot,$(HOSTBOOT_VERSION))

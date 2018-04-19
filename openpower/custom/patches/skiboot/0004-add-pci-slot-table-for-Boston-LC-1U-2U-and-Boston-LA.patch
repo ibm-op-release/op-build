@@ -1,8 +1,9 @@
-From 4d12d6995b97223a420e40dc7a085d283aa06990 Mon Sep 17 00:00:00 2001
-From: jim <jim.yuan@supermicro.com>
+From 88e33e340a3d1f13ecd37810b946dc879b1e3ad7 Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Fri, 16 Feb 2018 16:25:25 -0800
-Subject: [PATCH 3/3] add pci slot table for Boston LC 1U/2U and Boston LA/ESS.
+Subject: [PATCH 4/5] add pci slot table for Boston LC 1U/2U and Boston LA/ESS.
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  platforms/astbmc/p9dsu.c | 589 ++++++++++++++++++++++++++++++++++++++++++++++-
  1 file changed, 583 insertions(+), 6 deletions(-)

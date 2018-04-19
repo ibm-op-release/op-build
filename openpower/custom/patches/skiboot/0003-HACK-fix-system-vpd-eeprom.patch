@@ -1,8 +1,9 @@
-From 89d00ed98ed5009ab530afae1375855012cf40d2 Mon Sep 17 00:00:00 2001
+From 76a4f658afb759c853d2dc888d2a9c8ebdd2752f Mon Sep 17 00:00:00 2001
 From: Oliver O'Halloran <oohall@gmail.com>
 Date: Thu, 27 Apr 2017 14:20:21 +1000
-Subject: [PATCH 2/3] HACK: fix system-vpd eeprom
+Subject: [PATCH 3/5] HACK: fix system-vpd eeprom
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  platforms/astbmc/p9dsu.c | 20 ++++++++++++++++++++
  1 file changed, 20 insertions(+)

@@ -1,8 +1,9 @@
-From 08e632b14850e6eac165477d2ee4705409d13868 Mon Sep 17 00:00:00 2001
-From: jim <jim.yuan@supermicro.com>
+From f1d8637edd6731c6b74896ef95adefe20979c0ed Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Fri, 13 Apr 2018 13:43:38 -0700
-Subject: [PATCH] add slot power limit.
+Subject: [PATCH 5/5] add slot power limit.
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  platforms/astbmc/p9dsu.c | 27 +++++++++++++++++++++++++++
  1 file changed, 27 insertions(+)

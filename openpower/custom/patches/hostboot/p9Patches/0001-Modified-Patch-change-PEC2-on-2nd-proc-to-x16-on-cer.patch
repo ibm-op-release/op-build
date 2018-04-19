@@ -1,0 +1,137 @@
+From 7da847360d3c3a54de16796a49a19e3618061650 Mon Sep 17 00:00:00 2001
+From: jim <jim.yuan@supermicro.com>
+Date: Thu, 14 Sep 2017 14:45:32 -0700
+Subject: [PATCH 1/3] Modified Patch-change PEC2 on 2nd proc to x16 on certain
+ WIO
+
+---
+ src/include/usr/ipmi/ipmiif.H                    |  2 +
+ src/usr/isteps/istep10/host_proc_pcie_scominit.C | 64 +++++++++++++++++++++++-
+ 2 files changed, 65 insertions(+), 1 deletion(-)
+
+diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
+index 55546d13e..2978a6357 100644
+--- a/src/include/usr/ipmi/ipmiif.H
++++ b/src/include/usr/ipmi/ipmiif.H
+@@ -239,6 +239,8 @@ namespace IPMI
+     inline const command_t get_capabilities(void)
+     { return std::make_pair(NETFUN_APP, 0x36); }
+ 
++    inline const command_t master_readwrite(void)
++    { return std::make_pair(NETFUN_APP, 0x52); }
+ 
+     // Chassis messages
+     inline const command_t chassis_power_off(void)
+diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+index ff9075b4f..7a4679896 100644
+--- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
++++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+@@ -46,6 +46,7 @@
+ #include "host_proc_pcie_scominit.H"
+ #include <hwas/common/hwas.H>
+ #include <hwas/common/deconfigGard.H>
++#include <ipmi/ipmiif.H>
+ 
+ 
+ namespace   ISTEP_10
+@@ -334,6 +335,32 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+         i_pProcChipTarget ?
+             i_pProcChipTarget->getAttr<TARGETING::ATTR_HUID>() : 0);
+ 
++	//read riser ID from CPLD, IPMI master read write command.
++	uint8_t riser_id = 0 ;
++	errlHndl_t l_err = NULL;
++	size_t len = 4;
++					 
++	//create request data buffer
++	uint8_t* data = new uint8_t[len];
++					 
++	IPMI::completion_code cc = IPMI::CC_UNKBAD;
++					 
++	data[0] = 0x3;	//bmc bus 1 (0 based)
++	data[1] = 0x70; //slave address 
++	data[2] = 0x1;	//offset 0x1 for WIO info, 0x2 for UIO info
++	data[3] = 0x1;	
++	l_err = IPMI::sendrecv(IPMI::master_readwrite(), cc, len, data);
++					 
++	if( l_err == NULL )
++	{
++	 if( cc == IPMI::CC_OK )
++		{
++		riser_id = data[0];
++		}
++						 
++	}
++	delete[] data;//clean up buffer
++
+     // Currently there are three PEC config tables for procs with 48 usable PCIE
+     // lanes. In general, the code accumulates the current configuration of
+     // the PECs from the MRW and other dynamic information(such as bifurcation)
+@@ -646,6 +673,18 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+ 
+ #endif
+ 
++				//PEC2 on 2nd processor needs to be x16 for RSC-W2-6688P(2U WIO, riser ID 0x6) and RSC-W-66P(1U WIO, riser ID 0xe)
++				if((i_pProcChipTarget->getAttr<TARGETING::ATTR_HUID>() == 0x50001) && 
++					(l_pecID == 2) &&
++					(riser_id == 0x6 || riser_id == 0xe))
++				{
++					//TRACFCOMP(ISTEPS_TRACE::g_trac_isteps_trace, "Changing effectiveLaneMask for specific Boston Case");
++					effectiveLaneMask[0] = 0xFFFF;
++					effectiveLaneMask[1] = 0;
++					effectiveLaneMask[2] = 0;
++					effectiveLaneMask[3] = 0;
++				}
++
+                 l_pec->setAttr<
+                   TARGETING::ATTR_PROC_PCIE_LANE_MASK>(effectiveLaneMask);
+ 
+@@ -682,6 +721,24 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+                     PHB_X16_MAC_MAP,
+                    };
+ 
++			if((i_pProcChipTarget->getAttr<TARGETING::ATTR_HUID>() == 0x50001) && 
++				(l_pecID == 2) &&
++				(riser_id == 0x6 || riser_id == 0xe))
++
++			{
++				//TRACFCOMP(ISTEPS_TRACE::g_trac_isteps_trace, "Changing effectiveConfig table for specific Boston Case");
++
++				effectiveConfig =
++					  {{LANE_WIDTH_16X,
++					   LANE_WIDTH_NC,
++					   LANE_WIDTH_NC,
++					   LANE_WIDTH_NC},
++						0x00,PHB3_MASK,
++						PHB_X16_MAC_MAP,
++					   };
++
++			}
++
+             // Transform effective config to match lane config table format
+             for(size_t laneGroup = 0;
+                 laneGroup < MAX_LANE_GROUPS_PER_PEC;
+@@ -689,6 +746,7 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+             {
+                 effectiveConfig.laneSet[laneGroup].width
+                     = _laneMaskToLaneWidth(effectiveLaneMask[laneGroup]);
++		//TRACFCOMP(ISTEPS_TRACE::g_trac_isteps_trace, "laneGroup is %x, lane width is %x", laneGroup, effectiveConfig.laneSet[laneGroup].width);
+             }
+ 
+             const laneConfigRow* laneConfigItr =
+@@ -703,7 +761,11 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+                 refEnable = 0x1;
+                 macCntl = laneConfigItr->phb_to_pcieMAC;
+                 pecPhbActiveMask = laneConfigItr->phbActive;
+-
++                
++		//TRACFCOMP(ISTEPS_TRACE::g_trac_isteps_trace,
++		//"l_pecID is %d, iopConfig is %x, macCntl is %x, pecPhbActiveMask is %x",
++		//l_pecID, iopConfig, macCntl, pecPhbActiveMask);
++				
+                 // If we find a valid config, and the PHB_MASK is still NA
+                 // that means all PHB's on this PEC will be disabled. Lets
+                 // trace something out just so someone knows.
+-- 
+2.16.2.windows.1
+

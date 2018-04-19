@@ -1,8 +1,9 @@
 From 18d80c5486728f53a3dff5f0e42fb603dd23f70a Mon Sep 17 00:00:00 2001
-From: jim <jim.yuan@supermicro.com>
+From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Fri, 13 Apr 2018 11:24:16 -0700
 Subject: [PATCH] bootloader kernel size to 24 MB.
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  p9Layouts/defaultPnorLayout_64.xml | 34 +++++++++++++++++-----------------
  1 file changed, 17 insertions(+), 17 deletions(-)

@@ -1,8 +1,9 @@
 From f0e5d3ec3ffd605056464ad58f11d9c3c5c114d7 Mon Sep 17 00:00:00 2001
-From: jim <jim.yuan@supermicro.com>
+From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Wed, 19 Apr 2017 18:01:46 -0700
 Subject: [PATCH] add VGA handshake with BMC
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  ast_main.c | 38 ++++++++++++++++++++++++++++++++++++++
  1 file changed, 38 insertions(+)

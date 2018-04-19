@@ -1,0 +1,49 @@
+From 9d09185b236936e64a7474a9d860c671e479bcc9 Mon Sep 17 00:00:00 2001
+From: Prasad Bg Ranganath <prasadbgr@in.ibm.com>
+Date: Fri, 6 Apr 2018 14:23:26 -0500
+Subject: [PATCH 1/7] WOF: Bad IQ data needs to be filtered out
+
+Key_Cronus_Test=PM_REGRESS
+
+Change-Id: Id26174009d2757b99813bc80062ba53984a1265c
+CQ:SW424063
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/56887
+Tested-by: FSP CI Jenkins <fsp-CI-jenkins+hostboot@us.ibm.com>
+Tested-by: Hostboot CI <hostboot-ci+hostboot@us.ibm.com>
+Tested-by: Cronus HW CI <cronushw-ci+hostboot@us.ibm.com>
+Reviewed-by: Francesco A. Campisano <campisan@us.ibm.com>
+Dev-Ready: Francesco A. Campisano <campisan@us.ibm.com>
+Reviewed-by: Gregory S. Still <stillgs@us.ibm.com>
+Reviewed-by: Jennifer A. Stofer <stofer@us.ibm.com>
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/57059
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ .../chips/p9/procedures/hwp/pm/p9_pstate_parameter_block.C       | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/src/import/chips/p9/procedures/hwp/pm/p9_pstate_parameter_block.C b/src/import/chips/p9/procedures/hwp/pm/p9_pstate_parameter_block.C
+index 6a93b052d..02b7cb39d 100644
+--- a/src/import/chips/p9/procedures/hwp/pm/p9_pstate_parameter_block.C
++++ b/src/import/chips/p9/procedures/hwp/pm/p9_pstate_parameter_block.C
+@@ -1555,6 +1555,15 @@ proc_get_mvpd_iddq( const fapi2::Target<fapi2::TARGET_TYPE_PROC_CHIP>& i_target,
+         fapi2::current_err = fapi2::FAPI2_RC_SUCCESS;
+     }
+ 
++    //Verify ivdd_all_cores_off_caches_off has MSB bit is set
++    //if yes then initialized to 0
++    for (int i = 0; i < IDDQ_MEASUREMENTS; ++i)
++    {
++       if ( io_iddqt->ivdd_all_cores_off_caches_off[i] & 0x8000) 
++       {
++           io_iddqt->ivdd_all_cores_off_caches_off[i] = 0;
++       }
++    }
+     // Put out the structure to the trace
+     iddq_print(io_iddqt);
+ 
+-- 
+2.16.2.windows.1
+

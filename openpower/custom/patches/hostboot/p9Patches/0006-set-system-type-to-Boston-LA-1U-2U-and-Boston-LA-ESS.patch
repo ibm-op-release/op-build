@@ -1,8 +1,9 @@
-From 9c31f5e7430d94912c995d41e1718a7f4121a644 Mon Sep 17 00:00:00 2001
-From: jim <jim.yuan@supermicro.com>
+From 936b434ad85d631a2199f774076fa9e337f31a77 Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Thu, 15 Feb 2018 17:34:24 -0800
-Subject: [PATCH 3/3] set system type to Boston LA 1U, 2U and Boston LA/ESS.
+Subject: [PATCH 6/7] set system type to Boston LA 1U, 2U and Boston LA/ESS.
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  src/usr/isteps/istep10/call_proc_pcie_scominit.C   |  2 +
  src/usr/isteps/istep10/host_proc_pcie_scominit.C   | 71 ++++++++++++++++++++++
@@ -119,7 +120,7 @@ index 96e7ca273..8078bae39 100644
   *  @brief Computes PCIE configuration attributes based on MRW values
   *
 diff --git a/src/usr/targeting/common/xmltohb/attribute_types.xml b/src/usr/targeting/common/xmltohb/attribute_types.xml
-index 90fb7b3db..89003af88 100755
+index 95a4588a7..34b1b491e 100755
 --- a/src/usr/targeting/common/xmltohb/attribute_types.xml
 +++ b/src/usr/targeting/common/xmltohb/attribute_types.xml
 @@ -4249,6 +4249,7 @@

@@ -1,0 +1,136 @@
+From 936b434ad85d631a2199f774076fa9e337f31a77 Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
+Date: Thu, 15 Feb 2018 17:34:24 -0800
+Subject: [PATCH 6/7] set system type to Boston LA 1U, 2U and Boston LA/ESS.
+
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+---
+ src/usr/isteps/istep10/call_proc_pcie_scominit.C   |  2 +
+ src/usr/isteps/istep10/host_proc_pcie_scominit.C   | 71 ++++++++++++++++++++++
+ src/usr/isteps/istep10/host_proc_pcie_scominit.H   |  2 +
+ .../targeting/common/xmltohb/attribute_types.xml   |  1 +
+ 4 files changed, 76 insertions(+)
+
+diff --git a/src/usr/isteps/istep10/call_proc_pcie_scominit.C b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
+index 664a966e9..90a1b595e 100644
+--- a/src/usr/isteps/istep10/call_proc_pcie_scominit.C
++++ b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
+@@ -78,6 +78,8 @@ void*    call_proc_pcie_scominit( void    *io_pArgs )
+     errlHndl_t          l_errl      =   NULL;
+     IStepError          l_StepError;
+ 
++	setSystemType();
++
+     //
+     //  get a list of all the procs in the system
+     //
+diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+index 7a4679896..4f6b06f42 100644
+--- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
++++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+@@ -324,6 +324,77 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
+ }
+ 
+ 
++void setSystemType(void)
++{
++
++ uint8_t riser_id = 0 ;
++ errlHndl_t l_err = NULL; 
++ size_t len = 4;
++ 
++ //create request data buffer
++ uint8_t* data = new uint8_t[len];
++ 
++ IPMI::completion_code cc = IPMI::CC_UNKBAD;
++ 
++ data[0] = 0x3;  
++ data[1] = 0x70;  
++ data[2] = 0x1;  
++ data[3] = 0x2;  //offset 0x2 for UIO info
++ l_err = IPMI::sendrecv(IPMI::master_readwrite(), cc, len, data);
++ 
++ if( l_err == NULL )
++ {
++	 if( cc == IPMI::CC_OK )
++	 {
++	 riser_id = data[0];
++	 }
++	 
++ }
++ delete[] data;
++
++ATTR_SYSTEM_TYPE_type l_model = {0};
++
++TARGETING::Target* sys = NULL;
++targetService().getTopLevelTarget(sys);
++
++sys->tryGetAttr<TARGETING::ATTR_SYSTEM_TYPE>(l_model);
++TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "System Type is %s", l_model);
++TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "Riser ID is %d", riser_id);
++
++if (riser_id == 0x9)
++	{
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "1U System");
++	strcpy (l_model, "supermicro,p9dsu1u");
++
++	}
++else if (riser_id == 0x19)
++	{
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "2U System");
++	strcpy (l_model, "supermicro,p9dsu2u");
++	}
++else if (riser_id == 0x1D)
++	{
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "ESS System");
++	strcpy (l_model, "supermicro,p9dsu2uess");
++	}
++else
++	{
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "default fall back to 1U System");
++	strcpy (l_model, "supermicro,p9dsu1u");
++	}
++
++
++if (!sys->trySetAttr<TARGETING::ATTR_SYSTEM_TYPE>(l_model))
++	{
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "set System Type failed");
++	}
++
++sys->tryGetAttr<TARGETING::ATTR_SYSTEM_TYPE>(l_model);
++TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "after set, System Type is %s", l_model);
++
++}
++
++
+ //*****************************************************************************
+ // computeProcPcieConfigAttrs
+ //******************************************************************************
+diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.H b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
+index 96e7ca273..8078bae39 100644
+--- a/src/usr/isteps/istep10/host_proc_pcie_scominit.H
++++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
+@@ -33,6 +33,8 @@
+ namespace   ISTEP_10
+ {
+ 
++void setSystemType(void);
++
+ /**
+  *  @brief Computes PCIE configuration attributes based on MRW values
+  *
+diff --git a/src/usr/targeting/common/xmltohb/attribute_types.xml b/src/usr/targeting/common/xmltohb/attribute_types.xml
+index 95a4588a7..34b1b491e 100755
+--- a/src/usr/targeting/common/xmltohb/attribute_types.xml
++++ b/src/usr/targeting/common/xmltohb/attribute_types.xml
+@@ -4249,6 +4249,7 @@
+         <sizeInclNull>64</sizeInclNull>
+       </string>
+     </simpleType>
++    <writeable></writeable>
+   </attribute>
+ 
+   <attribute>
+-- 
+2.16.2.windows.1
+

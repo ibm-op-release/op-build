@@ -1,7 +1,7 @@
-From f845f6d00f4a107c2689f3089383b79d32cc107d Mon Sep 17 00:00:00 2001
+From fc542f66cf41da8a2b58022d5ae58b1857de7469 Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Tue, 18 Apr 2017 10:49:09 -0700
-Subject: [PATCH 5/7] send p9dsu board id 0x0985 to BMC.
+Subject: [PATCH 2/4] send p9dsu board id 0x0985 to BMC.
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---

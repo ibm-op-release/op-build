@@ -1,7 +1,7 @@
-From 936b434ad85d631a2199f774076fa9e337f31a77 Mon Sep 17 00:00:00 2001
+From 68a440863a02fcbe1d94bbc1ac6e8b1343fcc1fd Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Thu, 15 Feb 2018 17:34:24 -0800
-Subject: [PATCH 6/7] set system type to Boston LA 1U, 2U and Boston LA/ESS.
+Subject: [PATCH 3/4] set system type to Boston LA 1U, 2U and Boston LA/ESS.
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---

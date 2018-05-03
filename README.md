@@ -27,16 +27,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for howto contribute code.
 To build an image for a Palmetto system:
 
 ```
-git clone --recursive git@github.com:open-power/op-build.git
+git clone --recursive git@github.com:ibm-op-release/op-build.git
 cd op-build
 . op-build-env
 op-build palmetto_defconfig && op-build
 ```
 
 There are also default configurations for other platforms in
-`openpower/configs/`. Current POWER8 platforms include Habanero,
-Firestone, and Garrison. Current POWER9 platforms include Witherspoon,
-Boston (p9dsu), Romulus, and Zaius.
+`openpower/configs/`. 
 
 Buildroot/op-build supports both native and cross-compilation - it will
 automatically download and build an appropriate toolchain as part of the build

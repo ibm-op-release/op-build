@@ -5,7 +5,7 @@
 ################################################################################
 
 
-HOSTBOOT_BINARIES_VERSION ?= 49ecf5277a53fd8be2bb8b89eef6f1b0000ca742
+HOSTBOOT_BINARIES_VERSION ?= 6f88463f3c55e538c090068356d93beefed473c3
 HOSTBOOT_BINARIES_SITE ?= $(call github,ibm-op-release,hostboot-binaries,$(HOSTBOOT_BINARIES_VERSION))
 
 HOSTBOOT_BINARIES_LICENSE = Apache-2.0

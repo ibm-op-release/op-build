@@ -1,0 +1,51 @@
+From 76a4f658afb759c853d2dc888d2a9c8ebdd2752f Mon Sep 17 00:00:00 2001
+From: Oliver O'Halloran <oohall@gmail.com>
+Date: Thu, 27 Apr 2017 14:20:21 +1000
+Subject: [PATCH 3/5] HACK: fix system-vpd eeprom
+
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+---
+ platforms/astbmc/p9dsu.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/platforms/astbmc/p9dsu.c b/platforms/astbmc/p9dsu.c
+index 834a8307..2a380f3a 100644
+--- a/platforms/astbmc/p9dsu.c
++++ b/platforms/astbmc/p9dsu.c
+@@ -24,6 +24,24 @@
+ 
+ #include "astbmc.h"
+ 
++/*
++ * HACK: Hostboot doesn't export the correct data for the system VPD EEPROM
++ *       for this system. So we need to work around it here.
++ */
++static void p9dsu_dt_fixups(void)
++{
++	struct dt_node *n = dt_find_by_path(dt_root,
++		"/xscom@603fc00000000/i2cm@a2000/i2c-bus@0/eeprom@50");
++
++	if (n) {
++		dt_check_del_prop(n, "compatible");
++		dt_add_property_string(n, "compatible", "atmel,24c256");
++
++		dt_check_del_prop(n, "label");
++		dt_add_property_string(n, "label", "system-vpd");
++	}
++}
++
+ static bool p9dsu_probe(void)
+ {
+ 	if (!dt_node_is_compatible(dt_root, "supermicro,p9dsu"))
+@@ -35,6 +53,8 @@ static bool p9dsu_probe(void)
+ 	/* Setup UART for use by OPAL (Linux hvc) */
+ 	uart_set_console_policy(UART_CONSOLE_OPAL);
+ 
++	p9dsu_dt_fixups();
++
+ 	return true;
+ }
+ 
+-- 
+2.16.2.windows.1
+

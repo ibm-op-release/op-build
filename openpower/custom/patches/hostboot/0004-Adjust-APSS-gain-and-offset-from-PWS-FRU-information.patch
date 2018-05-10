@@ -1,0 +1,313 @@
+From 6af9bcd2b55a39a487a1d034432501e9576f3703 Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
+Date: Fri, 26 Jan 2018 14:52:32 -0800
+Subject: [PATCH 4/4] Adjust APSS gain and offset from PWS FRU information.
+
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+---
+ src/include/usr/ipmi/ipmiif.H                      |   3 +
+ src/usr/htmgt/htmgt_cfgdata.C                      |   2 +
+ src/usr/isteps/istep10/call_proc_pcie_scominit.C   |   1 +
+ src/usr/isteps/istep10/host_proc_pcie_scominit.C   | 212 +++++++++++++++++++++
+ src/usr/isteps/istep10/host_proc_pcie_scominit.H   |   2 +
+ .../common/xmltohb/attribute_types_openpower.xml   |   2 +
+ 6 files changed, 222 insertions(+)
+
+diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
+index b8006cc09..0325aa1b4 100644
+--- a/src/include/usr/ipmi/ipmiif.H
++++ b/src/include/usr/ipmi/ipmiif.H
+@@ -254,6 +254,9 @@ namespace IPMI
+     inline const command_t set_sel_time(void)
+     { return std::make_pair(NETFUN_STORAGE, 0x49); }
+ 
++	inline const command_t read_fru_data(void)
++	{ return std::make_pair(NETFUN_STORAGE, 0x11); }
++
+     inline const command_t write_fru_data(void)
+     { return std::make_pair(NETFUN_STORAGE, 0x12); }
+ 
+diff --git a/src/usr/htmgt/htmgt_cfgdata.C b/src/usr/htmgt/htmgt_cfgdata.C
+index f464b2345..da81ebc8b 100644
+--- a/src/usr/htmgt/htmgt_cfgdata.C
++++ b/src/usr/htmgt/htmgt_cfgdata.C
+@@ -1364,6 +1364,8 @@ void getApssMessageData(uint8_t* o_data,
+     ATTR_ADC_CHANNEL_OFFSETS_type offset;
+     sys->tryGetAttr<ATTR_ADC_CHANNEL_OFFSETS>(offset);
+ 
++	TMGT_ERR("getApssMessageData: gain is %d, offset is %d", gain[15], offset[15]);
++
+     CPPASSERT(sizeof(function) == sizeof(ground));
+     CPPASSERT(sizeof(function) == sizeof(gain));
+     CPPASSERT(sizeof(function) == sizeof(offset));
+diff --git a/src/usr/isteps/istep10/call_proc_pcie_scominit.C b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
+index 90a1b595e..060403cfc 100644
+--- a/src/usr/isteps/istep10/call_proc_pcie_scominit.C
++++ b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
+@@ -79,6 +79,7 @@ void*    call_proc_pcie_scominit( void    *io_pArgs )
+     IStepError          l_StepError;
+ 
+ 	setSystemType();
++	setAPSSGainOffsetFromPWSInfo();
+ 
+     //
+     //  get a list of all the procs in the system
+diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+index 4f6b06f42..42d28c7c1 100644
+--- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
++++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
+@@ -324,6 +324,218 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
+ }
+ 
+ 
++enum
++{
++PWS_1600 = 0,
++PWS_1000 = 1,
++PWS_1200 = 2,
++PWS_UNKNOWN = 0xFE,
++};
++
++uint8_t getPSUFRUFromIPMICommands(void)
++{
++	errlHndl_t l_err = NULL;
++	uint8_t* frudata = new uint8_t[120];
++	uint8_t i;
++	size_t len = 4;
++	uint8_t fru_header_version = 0;
++	uint8_t j = 0, loop_break = 0, read_offset = 0, fru_address;
++	bool ps1_fru_valid = 0, ps2_fru_valid = 0;
++
++	uint8_t product_info_offset, manufacture_name_offset, manufacture_name_length, product_name_offset, product_name_length; 
++	uint8_t product_partnumber_offset, product_partnumber_length;
++	uint8_t fru_offset, powerSupplyFru = PWS_UNKNOWN;
++	uint8_t pws1600[] = {'P','W','S','-','1','K','6','2','A','-','1','R'};
++	uint8_t pws1000[] = {'P','W','S','-','1','K','0','2','A','-','1','R'};
++	uint8_t pws1200[] = {'P','W','S','-','1','K','2','2','A','-','1','R'};
++
++	
++	//create request data buffer
++	uint8_t* data = new uint8_t[len];
++	
++	IPMI::completion_code cc = IPMI::CC_UNKBAD;
++	
++	data[0] = 60; //try to read from PWS1. 60-PWS1, 61-PWS2
++	data[1] = 0x0;  
++	data[2] = 0x0;  
++	data[3] = 8;  
++	l_err = IPMI::sendrecv(IPMI::read_fru_data(), cc, len, data);
++
++	if((l_err == NULL) && (cc == IPMI::CC_OK))
++		fru_header_version = data[1] & 0xF; //normal should be 0x01.
++		
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "fru header version is %x", fru_header_version);
++	delete[] data;
++
++	if(fru_header_version == 1)
++		ps1_fru_valid = 1;
++	else{ 
++		//we try 2nd PWS
++		uint8_t* data = new uint8_t[len];
++	
++		IPMI::completion_code cc = IPMI::CC_UNKBAD;
++	
++		data[0] = 61; //try to read from PWS2. 60-PWS1, 61-PWS2
++		data[1] = 0x0;  
++		data[2] = 0x0;  
++		data[3] = 8;  
++		l_err = IPMI::sendrecv(IPMI::read_fru_data(), cc, len, data);
++
++		if((l_err == NULL) && (cc == IPMI::CC_OK))
++			fru_header_version = data[1] & 0xF; //normal should be 0x01.
++		
++		TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "fru header version is %x", fru_header_version);
++		delete[] data;
++
++		if(fru_header_version == 1)
++			ps2_fru_valid = 1;
++		}
++	
++	if(ps1_fru_valid == 1)
++		fru_address = 60;
++	else if (ps2_fru_valid == 1)
++		fru_address = 61;
++	else{
++		powerSupplyFru = PWS_UNKNOWN;
++		return powerSupplyFru;
++		}
++		
++	l_err = NULL;
++	while ((l_err == NULL) && (loop_break == 0) && (read_offset < 100))
++		{			
++		//create request data buffer
++		len = 4; //must set len every time
++		uint8_t* data = new uint8_t[len];
++	
++		IPMI::completion_code cc = IPMI::CC_UNKBAD;
++	
++		data[0] = fru_address;  //read from correct PWS
++		data[1] = read_offset;  
++		data[2] = 0x0;  
++		data[3] = 8;  
++		l_err = IPMI::sendrecv(IPMI::read_fru_data(), cc, len, data);
++		
++		if (cc != IPMI::CC_OK) loop_break = 1;
++		
++		read_offset += 8;
++		for (i = 1; i <= 8; i++ )
++			{
++			frudata[j] = data[i];
++			j++;
++			}
++		delete[] data;	
++		}
++		
++
++	//Calculate product part number size and offset. Refer to FRU spec.		
++	product_info_offset = frudata[4] * 8;
++	manufacture_name_offset = product_info_offset + 3;
++	manufacture_name_length = frudata[manufacture_name_offset] & 0x3F;
++	product_name_offset = manufacture_name_offset + manufacture_name_length + 1;
++	product_name_length = frudata[product_name_offset] & 0x3F;
++	product_partnumber_offset = product_name_offset + product_name_length + 1;
++	product_partnumber_length = frudata[product_partnumber_offset] & 0x3F;
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "product_partnumber_length is %x", product_partnumber_length);
++	fru_offset = product_partnumber_offset + 1;
++	
++	if (product_partnumber_length == 12)
++	{
++		for (i = 0; pws1600[i] == frudata[fru_offset + i] && i <= 11 ; i++)
++			;
++			if (i == 11)
++			powerSupplyFru = PWS_1600;
++		
++		for (i = 0; pws1000[i] == frudata[fru_offset + i] && i <= 11 ; i++)
++			;
++			if (i == 11)
++			powerSupplyFru = PWS_1000;
++		
++		for (i = 0; pws1200[i] == frudata[fru_offset + i] && i <= 11 ; i++)
++			;
++			if (i == 11)
++			powerSupplyFru = PWS_1200;
++	}
++	else	
++		powerSupplyFru = PWS_UNKNOWN;
++
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "powerSupplyFru is %x", powerSupplyFru);
++	
++	return powerSupplyFru;
++
++}
++
++//find apss channel number from XML.
++enum
++{
++V12_SENSE = 0,
++PROC0_POWER = 1,
++PROC1_POWER = 2,
++PCIE_PROC0_POWER = 5,
++PCIE_PROC1_POWER = 6,	
++TOTAL_SYSTEM_POWER = 15,	
++};	
++
++void setAPSSGainOffsetFromPWSInfo(void)
++{
++
++	//Get Gain/Offset ATTR
++	TARGETING::Target* sys = NULL;
++	targetService().getTopLevelTarget(sys);
++
++	ATTR_ADC_CHANNEL_GAINS_type gain;
++	sys->tryGetAttr<ATTR_ADC_CHANNEL_GAINS>(gain);
++
++	ATTR_ADC_CHANNEL_OFFSETS_type offset;
++	sys->tryGetAttr<ATTR_ADC_CHANNEL_OFFSETS>(offset);
++
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "gain is %d, offset is %d", gain[15], offset[15]);
++
++	//Note that the function/ APSS channel ids can be indirect. I've hardcoded here, you will need to look at the XML to find the channel/function number that matches
++	//const uint8_t SYS_CHANNEL = 15; //APSS Channel 15 is sys power, ie the gain/offset we need to tweak
++
++	//Get power supply data from BMC
++	uint8_t powerSupplyFru = getPSUFRUFromIPMICommands();
++	
++	switch(powerSupplyFru)
++	{
++	case PWS_1600: //PWS-1K62A-1R (1600W):
++	gain[TOTAL_SYSTEM_POWER] = 67800;
++	offset[TOTAL_SYSTEM_POWER] = 0;
++	break;
++
++	case PWS_1000: //PWS-1K02A-1R (1000W):
++	gain[TOTAL_SYSTEM_POWER] = 41500;
++	offset[TOTAL_SYSTEM_POWER] = 0;
++	break;
++
++	case PWS_1200: //PWS-1K22A-1R (1200W):
++	gain[TOTAL_SYSTEM_POWER] = 50000; 
++	offset[TOTAL_SYSTEM_POWER] = 0;
++	break;
++
++	default:
++	//Do nothing, leave defaults
++	//Gen error for user attention?
++	break;
++	}
++
++	//Now write the attributes back so they get picked up by OCC code
++	if (!sys->trySetAttr<ATTR_ADC_CHANNEL_GAINS>(gain))
++	{
++	//unlikely, crash
++	//Emit failing trace/console data
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "set gain failed");
++	}
++
++	if (!sys->trySetAttr<ATTR_ADC_CHANNEL_OFFSETS>(offset))
++	{
++	//unlikely, crash
++	//Emit failing trace/console data
++	TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "set offset failed");
++	}
++}
++
++
+ void setSystemType(void)
+ {
+ 
+diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.H b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
+index 8078bae39..6a2703695 100644
+--- a/src/usr/isteps/istep10/host_proc_pcie_scominit.H
++++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
+@@ -34,6 +34,8 @@ namespace   ISTEP_10
+ {
+ 
+ void setSystemType(void);
++void setAPSSGainOffsetFromPWSInfo(void);
++
+ 
+ /**
+  *  @brief Computes PCIE configuration attributes based on MRW values
+diff --git a/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml b/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
+index c49d2f75a..1314e66f1 100644
+--- a/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
++++ b/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
+@@ -74,6 +74,7 @@
+     </simpleType>
+     <persistency>non-volatile</persistency>
+     <readable/>
++    <writeable/>
+ </attribute>
+ 
+ <attribute>
+@@ -85,6 +86,7 @@
+     </simpleType>
+     <persistency>non-volatile</persistency>
+     <readable/>
++    <writeable/>
+ </attribute>
+ 
+ <attribute>
+-- 
+2.16.2.windows.1
+

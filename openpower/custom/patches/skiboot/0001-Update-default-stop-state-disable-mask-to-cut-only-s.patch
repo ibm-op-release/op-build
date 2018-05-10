@@ -1,0 +1,36 @@
+From abd0d1a6adf9943450c1cd106ecc6aa21effe6f1 Mon Sep 17 00:00:00 2001
+From: Vaidyanathan Srinivasan <svaidy@linux.vnet.ibm.com>
+Date: Sat, 14 Apr 2018 12:44:18 +0530
+Subject: [PATCH 1/2] Update default stop-state-disable mask to cut only stop11
+
+Stability improvements in microcode for stop4/stop5 are
+available in upstream hcode images. Stop4 and stop5 can
+be safely enabled by default.
+
+Use ~0xE0000000 to cut all but stop0,1,2 in case there
+are any issues with stop4/5.
+
+example:
+nvram -p ibm,skiboot --update-config opal-stop-state-disable-mask=0x1FFFFFFF
+
+Signed-off-by: Vaidyanathan Srinivasan <svaidy@linux.vnet.ibm.com>
+---
+ hw/slw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/slw.c b/hw/slw.c
+index 8e845300..09cdb644 100644
+--- a/hw/slw.c
++++ b/hw/slw.c
+@@ -851,7 +851,7 @@ void add_cpu_idle_state_properties(void)
+ 	u64 *pm_ctrl_reg_val_buf;
+ 	u64 *pm_ctrl_reg_mask_buf;
+ 	u32 supported_states_mask;
+-	u32 opal_disabled_states_mask = ~0xE0000000; /* all but stop0,1,2 */
++	u32 opal_disabled_states_mask = ~0xEC000000; /* all but stop11 */
+ 	const char* nvram_disable_str;
+ 	u32 nvram_disabled_states_mask = 0x00;
+ 	u32 stop_levels;
+-- 
+2.16.2.windows.1
+

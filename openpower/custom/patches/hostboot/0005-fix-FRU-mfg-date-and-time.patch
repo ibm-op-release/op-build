@@ -1,0 +1,48 @@
+From e48b9baaaf04afe6ceed17089769ac1b39653e46 Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
+Date: Wed, 16 May 2018 10:52:34 -0700
+Subject: [PATCH] fix FRU mfg date and time.
+
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+---
+ src/usr/ipmi/ipmifruinv.C | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/src/usr/ipmi/ipmifruinv.C b/src/usr/ipmi/ipmifruinv.C
+index bbdb0f95e..2e330cc7f 100644
+--- a/src/usr/ipmi/ipmifruinv.C
++++ b/src/usr/ipmi/ipmifruinv.C
+@@ -379,6 +379,11 @@ void IpmiFruInv::setAreaSize(std::vector<uint8_t> &io_data, uint8_t i_offset)
+     return;
+ }
+ 
++static inline uint8_t bcd2_to_int(uint8_t bcd)
++{
++	return ((bcd >> 4) & 0xF) * 10 + (bcd & 0xF);
++}
++
+ // Function to compute the correct data for the Mfg date/time section.
+ // IPMI expects the time to be in seconds from 01/01/1996.
+ errlHndl_t IpmiFruInv::formatMfgData(std::vector<uint8_t> i_mfgDateData,
+@@ -426,12 +431,12 @@ errlHndl_t IpmiFruInv::formatMfgData(std::vector<uint8_t> i_mfgDateData,
+         // into a uint64 representing number of minute since 1/1/96
+ 
+         // The vpd data is expected to be in this format VVCCYYmmDDHHMMSS
+-        uint8_t century = i_mfgDateData.at(1);
+-        uint8_t year = i_mfgDateData.at(2);
+-        uint8_t month = i_mfgDateData.at(3);
+-        uint8_t day = i_mfgDateData.at(4);
+-        uint8_t hour = i_mfgDateData.at(5);
+-        uint8_t minute = i_mfgDateData.at(6);
++        uint8_t century = bcd2_to_int(i_mfgDateData.at(1));
++        uint8_t year = bcd2_to_int(i_mfgDateData.at(2));
++        uint8_t month = bcd2_to_int(i_mfgDateData.at(3));
++        uint8_t day = bcd2_to_int(i_mfgDateData.at(4));
++        uint8_t hour = bcd2_to_int(i_mfgDateData.at(5));
++        uint8_t minute = bcd2_to_int(i_mfgDateData.at(6));
+ 
+         // Subtract year
+         uint8_t numOfYears = (century*100 + year) - 1996;
+-- 
+2.16.2.windows.1
+

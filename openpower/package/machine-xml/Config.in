@@ -6,6 +6,11 @@ config BR2_PACKAGE_MACHINE_XML
         select BR2_PACKAGE_COMMON_P8_XML
         help
 
+config BR2_OPENPOWER_MACHINE_XML_GITHUB_ORG_VALUE
+	string "The Github organization name (e.g. open-power)"
+	default "open-power"
+	depends on BR2_OPENPOWER_MACHINE_XML_GITHUB_PROJECT
+
 choice
 	prompt "Machine XML location"
 

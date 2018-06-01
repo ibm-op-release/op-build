@@ -4,16 +4,12 @@
 #
 ################################################################################
 
-OPENPOWER_PNOR_VERSION ?= f6d970c6a600a7e248fa5d604eb471db4482760b
+OPENPOWER_PNOR_VERSION ?= b210f15c69933e21494323a8f5017501e7b2c1de
 OPENPOWER_PNOR_SITE ?= $(call github,open-power,pnor,$(OPENPOWER_PNOR_VERSION))
 
 OPENPOWER_PNOR_LICENSE = Apache-2.0
 OPENPOWER_PNOR_LICENSE_FILES = LICENSE
 OPENPOWER_PNOR_DEPENDENCIES = hostboot-binaries machine-xml skiboot host-openpower-ffs capp-ucode
-
-ifeq ($(BR2_OPENPOWER_POWER9),y)
-OPENPOWER_PNOR_DEPENDENCIES += hcode
-endif
 
 ifeq ($(BR2_PACKAGE_IMA_CATALOG),y)
 OPENPOWER_PNOR_DEPENDENCIES += ima-catalog
@@ -60,10 +56,7 @@ OPENPOWER_PNOR_INSTALL_IMAGES = YES
 OPENPOWER_PNOR_INSTALL_TARGET = NO
 
 HOSTBOOT_IMAGE_DIR=$(STAGING_DIR)/hostboot_build_images/
-HOSTBOOT_BINARY_DIR = $(STAGING_DIR)/hostboot_binaries
-
-HCODE_STAGING_DIR = $(STAGING_DIR)/hcode
-
+HOSTBOOT_BINARY_DIR = $(STAGING_DIR)/hostboot_binaries/
 SBE_BINARY_DIR = $(STAGING_DIR)/sbe_binaries/
 OPENPOWER_PNOR_SCRATCH_DIR = $(STAGING_DIR)/openpower_pnor_scratch/
 OPENPOWER_VERSION_DIR = $(STAGING_DIR)/openpower_version
@@ -93,8 +86,8 @@ OPENPOWER_VERSIONED_SUBPACKAGES += linux petitboot machine-xml hostboot-binaries
 OPENPOWER_PNOR = openpower-pnor
 
 ifeq ($(BR2_OPENPOWER_POWER9),y)
-    OPENPOWER_PNOR_DEPENDENCIES += sbe hcode
-    OPENPOWER_VERSIONED_SUBPACKAGES += sbe hcode
+    OPENPOWER_PNOR_DEPENDENCIES += sbe
+    OPENPOWER_VERSIONED_SUBPACKAGES += sbe
 endif
 
 ifeq ($(BR2_PACKAGE_OCC_P8),y)
@@ -112,7 +105,6 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
             -hb_image_dir $(HOSTBOOT_IMAGE_DIR) \
             -scratch_dir $(OPENPOWER_PNOR_SCRATCH_DIR) \
             -hb_binary_dir $(HOSTBOOT_BINARY_DIR) \
-            -hcode_dir $(HCODE_STAGING_DIR) \
             -targeting_binary_filename $(BR2_OPENPOWER_TARGETING_ECC_FILENAME) \
             -targeting_binary_source $(BR2_OPENPOWER_TARGETING_BIN_FILENAME) \
             -sbe_binary_filename $(BR2_HOSTBOOT_BINARY_SBE_FILENAME) \

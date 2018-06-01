@@ -1,17 +1,17 @@
-From 73353ff38f95484714356befca6d27cbcefa1d61 Mon Sep 17 00:00:00 2001
-From: "Corey V. Swenson" <cswenson@us.ibm.com>
-Date: Fri, 9 Feb 2018 15:04:22 -0500
-Subject: [PATCH v1] Revert "jgr17071200 Removed pdwn settings"
+From 3a543fab8b10a1943ae8255f1af6645e6dc4d130 Mon Sep 17 00:00:00 2001
+From: Dean Sanner <dsanner@us.ibm.com>
+Date: Fri, 13 Oct 2017 07:27:38 -0500
+Subject: [PATCH v1 1000/1006] Revert "jgr17071200 Removed pdwn settings"
 
 This reverts commit db4e2f31694ef29c34531fb0579d4d8b7340ca05.
 
-Change-Id: I45e61c75e5f47ef96c7f9de38d7c0184df37b9e9
+Change-Id: Ib04c421b849c75cc32903bea192d48de43e8b17c
 ---
  .../p9/procedures/hwp/initfiles/p9_obus_scom.C     | 603 +++++++++++++++++++++
  1 file changed, 603 insertions(+)
 
 diff --git a/src/import/chips/p9/procedures/hwp/initfiles/p9_obus_scom.C b/src/import/chips/p9/procedures/hwp/initfiles/p9_obus_scom.C
-index 5c4595e..390061b 100644
+index c7d4842..1ec201c 100644
 --- a/src/import/chips/p9/procedures/hwp/initfiles/p9_obus_scom.C
 +++ b/src/import/chips/p9/procedures/hwp/initfiles/p9_obus_scom.C
 @@ -40,6 +40,7 @@ constexpr uint64_t literal_0b00011 = 0b00011;
@@ -20,9 +20,9 @@ index 5c4595e..390061b 100644
  constexpr uint64_t literal_0b000000 = 0b000000;
 +constexpr uint64_t literal_0b000 = 0b000;
  constexpr uint64_t literal_0b01 = 0b01;
- constexpr uint64_t literal_0x0 = 0x0;
  constexpr uint64_t literal_0b010 = 0b010;
-@@ -929,6 +930,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+ constexpr uint64_t literal_0b001 = 0b001;
+@@ -917,6 +918,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
              FAPI_TRY(fapi2::putScom(TGT0, 0x8000001709010c3full, l_scom_buffer));
          }
          {
@@ -221,7 +221,7 @@ index 5c4595e..390061b 100644
              FAPI_TRY(fapi2::getScom( TGT0, 0x8000280009010c3full, l_scom_buffer ));
  
              l_scom_buffer.insert<52, 5, 59, uint64_t>(literal_0b10000 );
-@@ -4457,6 +4650,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+@@ -4373,6 +4566,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
              FAPI_TRY(fapi2::putScom(TGT0, 0x8000c81709010c3full, l_scom_buffer));
          }
          {
@@ -420,7 +420,7 @@ index 5c4595e..390061b 100644
              FAPI_TRY(fapi2::getScom( TGT0, 0x8002280009010c3full, l_scom_buffer ));
  
              if (( ! l_TGT2_ATTR_CHIP_EC_FEATURE_OBUS_HW419305))
-@@ -4913,6 +5298,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+@@ -4829,6 +5214,198 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
              FAPI_TRY(fapi2::putScom(TGT0, 0x8002281709010c3full, l_scom_buffer));
          }
          {
@@ -619,7 +619,7 @@ index 5c4595e..390061b 100644
              FAPI_TRY(fapi2::getScom( TGT0, 0x8008000009010c3full, l_scom_buffer ));
  
              constexpr auto l_IOO0_IOO_CPLT_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_PG_SPARE_MODE_4_OFF = 0x0;
-@@ -4926,6 +5503,12 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+@@ -4842,6 +5419,12 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
              FAPI_TRY(fapi2::putScom(TGT0, 0x8008080009010c3full, l_scom_buffer));
          }
          {
@@ -629,11 +629,11 @@ index 5c4595e..390061b 100644
 +            FAPI_TRY(fapi2::putScom(TGT0, 0x8008100009010c3full, l_scom_buffer));
 +        }
 +        {
-             FAPI_TRY(fapi2::getScom( TGT0, 0x8008180009010c3full, l_scom_buffer ));
- 
-             if (((l_TGT0_ATTR_IO_O_CHANNEL_TYPE == fapi2::ENUM_ATTR_IO_O_CHANNEL_TYPE_BOARD)
-@@ -5154,6 +5737,13 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
-             FAPI_TRY(fapi2::putScom(TGT0, 0x8008880009010c3full, l_scom_buffer));
+             if (((l_chip_id == 0x5) && (l_chip_ec == 0x10)) )
+             {
+                 FAPI_TRY(fapi2::getScom( TGT0, 0x8008180009010c3full, l_scom_buffer ));
+@@ -4962,6 +5545,13 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+             FAPI_TRY(fapi2::putScom(TGT0, 0x8008d00009010c3full, l_scom_buffer));
          }
          {
 +            FAPI_TRY(fapi2::getScom( TGT0, 0x8008c00009010c3full, l_scom_buffer ));
@@ -643,10 +643,10 @@ index 5c4595e..390061b 100644
 +            FAPI_TRY(fapi2::putScom(TGT0, 0x8008c00009010c3full, l_scom_buffer));
 +        }
 +        {
-             FAPI_TRY(fapi2::getScom( TGT0, 0x8008d00009010c3full, l_scom_buffer ));
+             FAPI_TRY(fapi2::getScom( TGT0, 0x8009700009010c3full, l_scom_buffer ));
  
-             if (( ! l_TGT2_ATTR_CHIP_EC_FEATURE_OBUS_HW419305))
-@@ -5224,12 +5814,25 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
+             constexpr auto l_IOO0_IOO_CPLT_RX0_RXCTL_CTL_REGS_RX_CTL_REGS_RX_RC_ENABLE_CTLE_1ST_LATCH_OFFSET_CAL_ON = 0x1;
+@@ -4998,12 +5588,25 @@ fapi2::ReturnCode p9_obus_scom(const fapi2::Target<fapi2::TARGET_TYPE_OBUS>& TGT
              FAPI_TRY(fapi2::putScom(TGT0, 0x8009880009010c3full, l_scom_buffer));
          }
          {

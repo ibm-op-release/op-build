@@ -4,9 +4,8 @@
 #
 ################################################################################
 
-OCC_VERSION = $(call qstrip,$(BR2_OCC_VERSION))
-OCC_SITE = $(call github,ibm-op-release,occ,$(OCC_VERSION))
 
+OCC_VERSION_BRANCH_OP910 ?= cd9b9206a637fbfc8d8598fb1472c48d1aac1f23
 OCC_LICENSE = Apache-2.0
 
 OCC_LICENSE_FILES = LICENSE

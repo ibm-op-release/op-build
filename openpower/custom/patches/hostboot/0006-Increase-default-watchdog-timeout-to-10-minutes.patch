@@ -1,0 +1,48 @@
+From cfc62b917f682cc2c21e9531a90c12af3c398a4b Mon Sep 17 00:00:00 2001
+From: Dan Crowell <dcrowell@us.ibm.com>
+Date: Wed, 23 May 2018 09:54:35 -0500
+Subject: [PATCH 1/2] Increase default watchdog timeout to 10 minutes
+
+We have discovered some error cases within the memory diagnostics
+step where a single hardware operation can take up to 6 minutes
+to complete.  The code sends a watchdog ping before issuing any
+command, but the current timeout (2 minutes) is insufficient to
+handle these long commands.
+
+Resolves boston-openpower/#1240
+
+Change-Id: I4e27a45c927c014b5fcc28d4510c5996a7009953
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/59290
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ src/include/usr/ipmi/ipmiwatchdog.H | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/include/usr/ipmi/ipmiwatchdog.H b/src/include/usr/ipmi/ipmiwatchdog.H
+index 324aa86ef..d74ea9300 100644
+--- a/src/include/usr/ipmi/ipmiwatchdog.H
++++ b/src/include/usr/ipmi/ipmiwatchdog.H
+@@ -43,7 +43,7 @@ namespace IPMIWATCHDOG
+ // Globals/Constants
+ /******************************************************************************/
+ /**
+- * @brief the default watchdog countdown setting it to 120 seconds.
++ * @brief the default watchdog countdown setting it to 600 seconds.
+  *
+  */
+ // The config option CONFIG_BMC_IPMI_LONG_WATCHDOG allows a tester to use a
+@@ -53,7 +53,7 @@ namespace IPMIWATCHDOG
+ #ifdef CONFIG_BMC_IPMI_LONG_WATCHDOG
+ const uint16_t  DEFAULT_WATCHDOG_COUNTDOWN = 3600; //60 minutes
+ #else
+-const uint16_t  DEFAULT_WATCHDOG_COUNTDOWN = 120; //2 minutes
++const uint16_t  DEFAULT_WATCHDOG_COUNTDOWN = 600; //10 minutes
+ #endif
+ 
+ /**
+-- 
+2.16.2.windows.1
+

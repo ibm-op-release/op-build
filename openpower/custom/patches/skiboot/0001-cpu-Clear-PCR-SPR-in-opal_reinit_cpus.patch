@@ -1,0 +1,44 @@
+From ac3cfab6af756e1374d9e52e6d1e1564bd858f5c Mon Sep 17 00:00:00 2001
+From: Michael Neuling <mikey@neuling.org>
+Date: Fri, 18 May 2018 11:58:27 +1000
+Subject: [PATCH] cpu: Clear PCR SPR in opal_reinit_cpus()
+
+Currently if Linux boots with a non-zero PCR, things can go bad where
+some early userspace programs can take illegal instructions. This is
+being fixed in Linux, but in the mean time, we should cleanup in
+skiboot also.
+
+Signed-off-by: Michael Neuling <mikey@neuling.org>
+Signed-off-by: Stewart Smith <stewart@linux.ibm.com>
+---
+ core/cpu.c          | 1 +
+ include/processor.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/core/cpu.c b/core/cpu.c
+index 1569c9f6..0077103d 100644
+--- a/core/cpu.c
++++ b/core/cpu.c
+@@ -1333,6 +1333,7 @@ static void cpu_cleanup_one(void *param __unused)
+ {
+ 	mtspr(SPR_AMR, 0);
+ 	mtspr(SPR_IAMR, 0);
++	mtspr(SPR_PCR, 0);
+ }
+ 
+ static int64_t cpu_cleanup_all(void)
+diff --git a/include/processor.h b/include/processor.h
+index 27cc1aa3..6b262b45 100644
+--- a/include/processor.h
++++ b/include/processor.h
+@@ -77,6 +77,7 @@
+ #define SPR_LPCR	0x13e
+ #define SPR_HMER	0x150	/* Hypervisor Maintenance Exception */
+ #define SPR_HMEER	0x151	/* HMER interrupt enable mask */
++#define SPR_PCR		0x152
+ #define SPR_AMOR	0x15d
+ #define SPR_PSSCR	0x357   /* RW: Stop status and control (ISA 3) */
+ #define SPR_TSCR	0x399
+-- 
+2.16.2.windows.1
+

@@ -1,0 +1,231 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Benjamin Herrenschmidt <benh@au1.ibm.com>
+Date: Mon, 25 Jun 2018 11:00:37 +1000
+Subject: [PATCH] utils/hooks: Use custom CPU ordering
+
+From: Benjamin Herrenschmidt <benh@au1.ibm.com>
+[DTB read/write fixed up by]
+Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+---
+ utils/Makefile.am             |   9 +-
+ utils/hooks/99-dt-sort-cpus.c | 182 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 189 insertions(+), 2 deletions(-)
+ create mode 100644 utils/hooks/99-dt-sort-cpus.c
+
+diff --git a/utils/Makefile.am b/utils/Makefile.am
+index c9015a02..f401e1e0 100644
+--- a/utils/Makefile.am
++++ b/utils/Makefile.am
+@@ -23,9 +23,14 @@ utils_hooks_30_dtb_updates_SOURCES = utils/hooks/30-dtb-updates.c
+ utils_hooks_30_dtb_updates_LDADD = $(top_builddir)/lib/libpbcore.la \
+ 		$(FDT_LIBS)
+ 
++utils_hooks_99_dt_sort_cpus_SOURCES = utils/hooks/99-dt-sort-cpus.c
++utils_hooks_99_dt_sort_cpus_LDADD = $(top_builddir)/lib/libpbcore.la \
++		$(FDT_LIBS)
++
+ if HAVE_LIBFDT
+ noinst_PROGRAMS += \
+-	utils/hooks/30-dtb-updates
++	utils/hooks/30-dtb-updates \
++	utils/hooks/99-dt-sort-cpus
+ endif
+ 
+ dist_pkgdata_DATA = \
+@@ -34,4 +39,4 @@ dist_pkgdata_DATA = \
+ 	utils/logrotate.conf \
+ 	utils/hooks/01-create-default-dtb \
+ 	utils/hooks/20-update-dtb-sample \
+-	utils/hooks/90-sort-dtb
++	utils/hooks/99-dt-sort-cpus
+diff --git a/utils/hooks/99-dt-sort-cpus.c b/utils/hooks/99-dt-sort-cpus.c
+new file mode 100644
+index 00000000..eabbcbc6
+--- /dev/null
++++ b/utils/hooks/99-dt-sort-cpus.c
+@@ -0,0 +1,182 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <libfdt.h>
++#include <stdint.h>
++#include <stdbool.h>
++#include <endian.h>
++
++struct scpu {
++	int offset;
++	uint32_t pir;
++	bool single;
++};
++
++static char *idt, *odt;
++static int ncpus;
++struct scpu *scpus;
++static int cpus;
++
++#define CHUNK	0x1000
++
++uint32_t get_prop_u32(int node, const char *name)
++{
++	const uint32_t *p;
++	int len;
++
++	p = fdt_getprop(idt, node, name, &len);
++	if (!p || len < 4) {
++		fprintf(stderr, "Error getting prop %s in node %s\n",
++			name, fdt_get_name(idt, node, NULL));
++		exit(1);
++	}
++	return be32toh(*p);
++}
++
++static int compare_cpus(const void *_c1, const void *_c2)
++{
++	const struct scpu *c1 = _c1;
++	const struct scpu *c2 = _c2;
++
++	/* First, sort per socket. We assume P9 of course */
++	if ((c1->pir >> 8) < (c2->pir >> 8))
++		return 1;
++	if ((c1->pir >> 8) > (c2->pir >> 8))
++		return -1;
++
++	/* Then order by single/!single */
++	if (c1->single && !c2->single)
++		return -1;
++	if (c2->single && !c1->single)
++		return 1;
++
++	/* Finally order by PIR within this */
++	if (c1->pir > c2->pir)
++		return -1;
++	else if (c1->pir == c2->pir)
++		return 0;
++	else
++		return 1;
++}
++
++int main(int argc, char *argv[])
++{
++	size_t idt_size, old_size, read_size, odt_size;
++	int c, ncpus, i;
++	FILE *ifile;
++	char *filename = NULL;
++
++	if (argc > 1)
++		filename = argv[1];
++	else if (getenv("boot_dtb"))
++		filename = getenv("boot_dtb");
++
++	if (filename)
++		ifile = fopen(filename, "r");
++	else {
++		printf("Reading dtb from stdin\n");
++		ifile = stdin;
++	}
++
++	idt_size = 0;
++	for (;;) {
++		old_size = idt_size;
++		idt_size += CHUNK;
++		idt = realloc(idt, idt_size);
++		read_size = fread(idt + old_size, 1, CHUNK, ifile);
++		if (read_size < CHUNK)
++			break;
++	}
++
++	fclose(ifile);
++	if (fdt_check_header(idt)) {
++		fprintf(stderr, "Failed to parse input tree !\n");
++		exit(1);
++	}
++
++	cpus = fdt_path_offset(idt, "/cpus");
++	ncpus = 0;
++	fdt_for_each_subnode(c, idt, cpus) {
++		const char *dtype;
++
++		dtype = fdt_getprop(idt, c, "device_type", NULL);
++		if (strcmp(dtype, "cpu"))
++			continue;
++		scpus = realloc(scpus, sizeof(struct scpu) * ++ncpus);
++		scpus[ncpus - 1].offset = c;
++		scpus[ncpus - 1].pir = get_prop_u32(c, "reg");
++	}
++	fprintf(stderr, "Found %d CPUs\n", ncpus);
++
++	/* Check for singletons */
++	for (i = 0; i < ncpus; i++) {
++		bool single = true;
++		int j;
++
++		for (j = 0; single && j < ncpus; j++)
++			if ((scpus[i].pir ^ scpus[j].pir) == 4)
++				single = false;
++		scpus[i].single = single;
++	}
++
++	/* Sort the CPUs */
++	qsort(scpus, ncpus, sizeof(struct scpu), compare_cpus);
++
++	/* Allocate extra room just in case */
++	odt_size = idt_size * 2;
++	odt = malloc(odt_size);
++
++	if (fdt_open_into(idt, odt, odt_size)) {
++		fprintf(stderr, "Failed to open output tree\n");
++		exit(1);
++	}
++
++	cpus = fdt_path_offset(idt, "/cpus");
++
++	/* Remove CPU nodes */
++	for (;;) {
++		fdt_for_each_subnode(c, odt, cpus) {
++			const char *dtype;
++
++			dtype = fdt_getprop(odt, c, "device_type", NULL);
++			if (!strcmp(dtype, "cpu"))
++				break;
++		}
++		if (c < 0)
++			break;
++		fdt_del_node(odt, c);
++	}
++
++	/* Copy them over again */
++	for (i = 0; i < ncpus; i++) {
++		int prop, n, c = scpus[i].offset;
++		const char *nname = fdt_get_name(idt, c, NULL);
++
++		fprintf(stderr, "CPU %.4x %s\n",
++			get_prop_u32(c, "reg"),
++			scpus[i].single ? "!" : "");
++
++		n = fdt_add_subnode(odt, cpus, nname);
++		if (n < 0) {
++			fprintf(stderr, "Failed to create node %s\n", nname);
++			exit(1);
++		}
++		fdt_for_each_property_offset(prop, idt, c) {
++			const void *pval;
++			const char *pname;
++			int plen;
++			pval = fdt_getprop_by_offset(idt, prop, &pname, &plen);
++			fdt_setprop(odt, n, pname, pval, plen);
++		}
++	}
++	fdt_pack(odt);
++	fprintf(stderr, "output tree size: %d\n", fdt_totalsize(odt));
++	if (filename) {
++		ifile = fopen(filename, "w");
++		fwrite(odt, 1, fdt_totalsize(odt), ifile);
++		fclose(ifile);
++	} else
++		fwrite(odt, 1, fdt_totalsize(odt), stdout);
++
++	return 0;
++}
+-- 
+2.18.0
+

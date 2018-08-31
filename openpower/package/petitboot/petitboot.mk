@@ -44,7 +44,7 @@ define PETITBOOT_POST_INSTALL
 	$(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/petitboot/boot.d
 	$(INSTALL) -D -m 0755 $(@D)/utils/hooks/01-create-default-dtb \
 		$(TARGET_DIR)/etc/petitboot/boot.d/
-	$(INSTALL) -D -m 0755 $(@D)/utils/hooks/90-sort-dtb \
+	$(INSTALL) -D -m 0755 $(@D)/utils/hooks/99-dt-sort-cpus \
 		$(TARGET_DIR)/etc/petitboot/boot.d/
 
 	$(INSTALL) -D -m 0755 $(BR2_EXTERNAL_OP_BUILD_PATH)/package/petitboot/S14silence-console \

@@ -1,0 +1,523 @@
+From 3da6d95b3a3a8b90d822d9595a426292db0fadab Mon Sep 17 00:00:00 2001
+From: Mike Baiocchi <mbaiocch@us.ibm.com>
+Date: Fri, 19 Oct 2018 14:21:33 -0500
+Subject: [PATCH] Split ATTR PNOR Partition into RO and RW Partitions
+
+This commit takes the attribute/targeting "HBD" PNOR Partition and
+splits it up into two separate PNOR patitions: HBD_RO ("READ-ONLY")
+and HBD_RW ("Read-Write").
+
+Change-Id: I66d8316b34dda26567496b8beb5eae3c9d179fd2
+RTC:200281
+CQ:SW423354
+---
+ src/build/buildpnor/defaultPnorLayout.xml |  4 +-
+ src/build/buildpnor/genPnorImages.pl      | 28 ++---------
+ src/build/buildpnor/makefile              |  4 +-
+ src/build/buildpnor/pnorLayoutFSP.xml     |  4 +-
+ src/build/buildpnor/pnorLayoutFake.xml    |  4 +-
+ src/build/mkrules/hbfw/img/makefile       | 36 ++++++-------
+ src/include/usr/pnor/pnor_const.H         |  5 +-
+ src/usr/pnor/pnor_utils.C                 |  9 ++--
+ src/usr/pnor/test/pnorrptest.H            |  2 +-
+ src/usr/targeting/attrrp.C                | 84 ++++++++++++++++++++++++-------
+ 10 files changed, 106 insertions(+), 74 deletions(-)
+
+diff --git a/src/build/buildpnor/defaultPnorLayout.xml b/src/build/buildpnor/defaultPnorLayout.xml
+index bedc42d..0b9faf6 100644
+--- a/src/build/buildpnor/defaultPnorLayout.xml
++++ b/src/build/buildpnor/defaultPnorLayout.xml
+@@ -5,7 +5,7 @@
+ <!--                                                                        -->
+ <!-- OpenPOWER HostBoot Project                                             -->
+ <!--                                                                        -->
+-<!-- Contributors Listed Below - COPYRIGHT 2012,2017                        -->
++<!-- Contributors Listed Below - COPYRIGHT 2012,2018                        -->
+ <!-- [+] International Business Machines Corp.                              -->
+ <!--                                                                        -->
+ <!--                                                                        -->
+@@ -132,7 +132,7 @@ Layout Description
+     </section>
+     <section>
+         <description>Hostboot Data (2MB)</description>
+-        <eyeCatch>HBD</eyeCatch>
++        <eyeCatch>HBD_RO</eyeCatch>
+         <physicalOffset>0x251000</physicalOffset>
+         <physicalRegionSize>0x200000</physicalRegionSize>
+         <sha512Version/>
+diff --git a/src/build/buildpnor/genPnorImages.pl b/src/build/buildpnor/genPnorImages.pl
+index 7681023..5316a03 100755
+--- a/src/build/buildpnor/genPnorImages.pl
++++ b/src/build/buildpnor/genPnorImages.pl
+@@ -6,7 +6,7 @@
+ #
+ # OpenPOWER HostBoot Project
+ #
+-# Contributors Listed Below - COPYRIGHT 2016,2017
++# Contributors Listed Below - COPYRIGHT 2016,2018
+ # [+] International Business Machines Corp.
+ #
+ #
+@@ -569,9 +569,9 @@ sub manipulateImages
+         $isNormalSecure ||= ($eyeCatch eq "HCODE");
+         $isNormalSecure ||= ($eyeCatch eq "WOFDATA");
+         $isNormalSecure ||= ($eyeCatch eq "IMA_CATALOG");
++        $isNormalSecure ||= ($eyeCatch eq "HBD_RO");
+ 
+         my $isSpecialSecure = ($eyeCatch eq "HBB");
+-        $isSpecialSecure ||= ($eyeCatch eq "HBD");
+         $isSpecialSecure ||= ($eyeCatch eq "HBI");
+ 
+         # Used to indicate security is supported in firmware
+@@ -696,24 +696,6 @@ sub manipulateImages
+ 
+                         run_command("cat $tempImages{PROTECTED_PAYLOAD} $bin_file > $tempImages{HDR_PHASE}");
+                     }
+-                    # Handle read-only protected payload
+-                    elsif ($eyeCatch eq "HBD")
+-                    {
+-                        if($openSigningTool)
+-                        {
+-                            run_command("$CUR_OPEN_SIGN_REQUEST "
+-                                . "--protectedPayload $bin_file.protected "
+-                                . "--out $tempImages{PROTECTED_PAYLOAD}");
+-                        }
+-                        else
+-                        {
+-                            # @TODO RTC:155374 Remove when official signing
+-                            # supported
+-                            run_command("$SIGNING_DIR/build -good -if $secureboot_hdr -of $tempImages{PROTECTED_PAYLOAD} -bin $bin_file.protected $SIGN_BUILD_PARAMS");
+-                        }
+-
+-                        run_command("cat $tempImages{PROTECTED_PAYLOAD} $bin_file.unprotected > $tempImages{HDR_PHASE}");
+-                    }
+                     else
+                     {
+                         if($openSigningTool)
+@@ -1263,7 +1245,7 @@ print <<"ENDUSAGE";
+   Usage:
+     $programName --pnorlayout <layout xml file>
+              --systemBinFiles HBI=hostboot_extended.bin,HBEL=HBEL.bin,GUARD=EMPTY
+-             --systemBinFiles MURANO:HBD=simics_MURANO_targeting.bin
++             --systemBinFiles MURANO:HBD_RO=simics_MURANO_targeting.bin
+              --build-all --test --binDir <path> --secureboot --corrupt HBI
+ 
+   Parms:
+@@ -1277,7 +1259,7 @@ print <<"ENDUSAGE";
+                             For sections <NAME> that simply require zero-filling, you can pass in EMPTY or
+                                 any non-existing file. If a file DNE, the script will handle accordingly.
+                             Example: HBI=hostboot_extended.bin,GUARD=EMPTY
+-                                     MURANO:HBD=simics_MURANO_targeting.bin
++                                     MURANO:HBD_RO=simics_MURANO_targeting.bin
+     --test              Output test-only sections.
+     --secureboot        Indicates a secureboot build.
+     --corrupt           <Partition name>[= pro|unpro] (Note: requires '--secureboot')
+@@ -1287,7 +1269,7 @@ print <<"ENDUSAGE";
+                             [Note: Some sections only have a protected section so not relevant for all.]
+                         Multiple '--corrupt' options are allowed, but note the system will checkstop on the
+                             first bad partition so multiple may not be that useful.
+-                        Example: --corrupt HBI --corrupt HBD=unpro
++                        Example: --corrupt HBI --corrupt HBD_RW=unpro
+     --sign-mode <development|production>   Indicates how to sign partitions with either development keys or production keys
+     --key-transition <imprint|production>   Indicates a key transition is needed and creates a secureboot key transition container.
+                                             Note: "--sign-mode production" is not allowed with "--key-transition imprint"
+diff --git a/src/build/buildpnor/makefile b/src/build/buildpnor/makefile
+index 997b8fb..ec82f0c 100644
+--- a/src/build/buildpnor/makefile
++++ b/src/build/buildpnor/makefile
+@@ -5,7 +5,7 @@
+ #
+ # OpenPOWER HostBoot Project
+ #
+-# Contributors Listed Below - COPYRIGHT 2012,2017
++# Contributors Listed Below - COPYRIGHT 2012,2018
+ # [+] International Business Machines Corp.
+ #
+ #
+@@ -55,7 +55,7 @@ $${IMGDIR}/$(1).pnor: $${IMGDIR}/hbicore_extended.bin $${IMGDIR}/$(1)_targeting.
+ #	    --pnorOutBin $${IMGDIR}/$(1).pnor \
+ #	    --binFile_part $${IMGDIR}/$(1)_pnor.toc \
+ #	    --binFile_HBI $${IMGDIR}/hbicore_extended.bin \
+-#	    --binFile_HBD $${IMGDIR}/$(1)_targeting.bin
++#	    --binFile_HBD_RO $${IMGDIR}/$(1)_targeting.bin
+ #endif
+ endef
+ 
+diff --git a/src/build/buildpnor/pnorLayoutFSP.xml b/src/build/buildpnor/pnorLayoutFSP.xml
+index 904d4e4..2629d1b 100644
+--- a/src/build/buildpnor/pnorLayoutFSP.xml
++++ b/src/build/buildpnor/pnorLayoutFSP.xml
+@@ -5,7 +5,7 @@
+ <!--                                                                        -->
+ <!-- OpenPOWER HostBoot Project                                             -->
+ <!--                                                                        -->
+-<!-- Contributors Listed Below - COPYRIGHT 2016,2017                        -->
++<!-- Contributors Listed Below - COPYRIGHT 2016,2018                        -->
+ <!-- [+] International Business Machines Corp.                              -->
+ <!--                                                                        -->
+ <!--                                                                        -->
+@@ -132,7 +132,7 @@ Layout Description - Used when building an FSP driver
+     </section>
+     <section>
+         <description>Hostboot Data (2MB)</description>
+-        <eyeCatch>HBD</eyeCatch>
++        <eyeCatch>HBD_RO</eyeCatch>
+         <physicalOffset>0x251000</physicalOffset>
+         <physicalRegionSize>0x200000</physicalRegionSize>
+         <sha512Version/>
+diff --git a/src/build/buildpnor/pnorLayoutFake.xml b/src/build/buildpnor/pnorLayoutFake.xml
+index e8a319c..bd6f2ec 100644
+--- a/src/build/buildpnor/pnorLayoutFake.xml
++++ b/src/build/buildpnor/pnorLayoutFake.xml
+@@ -5,7 +5,7 @@
+ <!--                                                                        -->
+ <!-- OpenPOWER HostBoot Project                                             -->
+ <!--                                                                        -->
+-<!-- Contributors Listed Below - COPYRIGHT 2015,2016                        -->
++<!-- Contributors Listed Below - COPYRIGHT 2015,2018                        -->
+ <!-- [+] International Business Machines Corp.                              -->
+ <!--                                                                        -->
+ <!--                                                                        -->
+@@ -121,7 +121,7 @@ Layout Description
+     <section>
+         <!-- NOTE: smaller than official layout  for fake-PNOR  -->
+         <description>Attribute Data (256K)</description>
+-        <eyeCatch>HBD</eyeCatch>
++        <eyeCatch>HBD_RO</eyeCatch>
+         <physicalOffset>0xCA000</physicalOffset>
+         <physicalRegionSize>0x40000</physicalRegionSize>
+         <side>sideless</side>
+diff --git a/src/build/mkrules/hbfw/img/makefile b/src/build/mkrules/hbfw/img/makefile
+index ebc3e30..72167fd 100755
+--- a/src/build/mkrules/hbfw/img/makefile
++++ b/src/build/mkrules/hbfw/img/makefile
+@@ -225,7 +225,7 @@ clobber_build_sbe_partitions:
+ #	${buildpnor.pl:P} --pnorLayout ${.PATH:F${MURANO_LAYOUT}} \
+ #	   --pnorOutBin ${.TARGET} \
+ #	   --binFile_HBI ${.PATH:Fhostboot_extended.bin} \
+-#	   --binFile_HBD ${.PATH:F${MURANO_TARGETING}} \
++#	   --binFile_HBD_RO ${.PATH:F${MURANO_TARGETING}} \
+ #	   --binFile_HBB ${.PATH:Fhostboot.bin} \
+ #	   --fpartCmd "${FPARTCMD}" --fcpCmd "${FCPCMD}"
+ ##################################################
+@@ -241,8 +241,8 @@ ENGD_OBJPATH = ${HBFW_OBJPATH:S/hbfw\/img/engd\/href/g}
+ 
+ # Input images
+ ## Chip Specific
+-NIMBUS_HBD_IMG = simics_NIMBUS_targeting.bin
+-CUMULUS_HBD_IMG = simics_CUMULUS_targeting.bin
++NIMBUS_HBD_RO_IMG = simics_NIMBUS_targeting.bin
++CUMULUS_HBD_RO_IMG = simics_CUMULUS_targeting.bin
+ NIMBUS_HCODE_IMG = ${ENGD_SRCPATH:Fp9n.hw_ref_image.bin}
+ CUMULUS_HCODE_IMG = ${ENGD_SRCPATH:Fp9c.hw_ref_image.bin}
+ NIMBUS_OCC_IMG = ${bb}/images/ppc/lab/fs/p9le/rootfs/opt/extucode/81e00430.lid
+@@ -253,13 +253,13 @@ ZEPPELIN_WOFDATA_IMG = ${ENGD_WOFPATH:Fzeppelin_wof_data.bin}
+ ZZ_MEMD_IMG = ${ENGD_MEMDPATH:Fzz_memd_data.bin}
+ 
+ # Input fake images
+-NIMBUS_VPO_HBD_IMG = vbu_NIMBUS_targeting.bin
++NIMBUS_VPO_HBD_RO_IMG = vbu_NIMBUS_targeting.bin
+ 
+ # Output final images
+ # Final eyecatch name must match PNOR xml layout
+ ## Chip Specific
+-NIMBUS_HBD_FINAL_IMG = NIMBUS.HBD.bin
+-CUMULUS_HBD_FINAL_IMG = CUMULUS.HBD.bin
++NIMBUS_HBD_RO_FINAL_IMG = NIMBUS.HBD_RO.bin
++CUMULUS_HBD_RO_FINAL_IMG = CUMULUS.HBD_RO.bin
+ NIMBUS_HCODE_FINAL_IMG = NIMBUS.HCODE.bin
+ CUMULUS_HCODE_FINAL_IMG = CUMULUS.HCODE.bin
+ NIMBUS_SBE_FINAL_IMG = NIMBUS.SBE.bin
+@@ -276,11 +276,11 @@ ZZ_MEMD_FINAL_IMG = ZZ.MEMD.bin
+ .if(${FAKEPNOR} == "")
+     # Paramemters passed into GEN_PNOR_IMAGE_SCRIPT.
+     .if(${DEFAULT_PNOR} == 1)
+-        GEN_NIMBUS_BIN_FILES = NIMBUS:SBE=${NIMBUS_SBE_IMG:p},HCODE=${${NIMBUS_HCODE_IMG}:P},OCC=${${NIMBUS_OCC_IMG}:P},HBD=${${NIMBUS_HBD_IMG}:P}
+-        GEN_CUMULUS_BIN_FILES = CUMULUS:SBE=${CUMULUS_SBE_IMG:p},HCODE=${${CUMULUS_HCODE_IMG}:P},OCC=${${CUMULUS_OCC_IMG}:P},HBD=${${CUMULUS_HBD_IMG}:P}
++        GEN_NIMBUS_BIN_FILES = NIMBUS:SBE=${NIMBUS_SBE_IMG:p},HCODE=${${NIMBUS_HCODE_IMG}:P},OCC=${${NIMBUS_OCC_IMG}:P},HBD_RO=${${NIMBUS_HBD_RO_IMG}:P}
++        GEN_CUMULUS_BIN_FILES = CUMULUS:SBE=${CUMULUS_SBE_IMG:p},HCODE=${${CUMULUS_HCODE_IMG}:P},OCC=${${CUMULUS_OCC_IMG}:P},HBD_RO=${${CUMULUS_HBD_RO_IMG}:P}
+     .else
+-        GEN_NIMBUS_BIN_FILES = NIMBUS:SBE=${NIMBUS_SBE_IMG:p},HCODE=${${NIMBUS_HCODE_IMG}:P},OCC=${${NIMBUS_OCC_IMG}:P},HBD=${${NIMBUS_HBD_IMG}:P}
+-        GEN_CUMULUS_BIN_FILES = CUMULUS:SBE=${CUMULUS_SBE_IMG:p},HCODE=${${CUMULUS_HCODE_IMG}:P},OCC=${${CUMULUS_OCC_IMG}:P},HBD=${${CUMULUS_HBD_IMG}:P}
++        GEN_NIMBUS_BIN_FILES = NIMBUS:SBE=${NIMBUS_SBE_IMG:p},HCODE=${${NIMBUS_HCODE_IMG}:P},OCC=${${NIMBUS_OCC_IMG}:P},HBD_RO=${${NIMBUS_HBD_RO_IMG}:P}
++        GEN_CUMULUS_BIN_FILES = CUMULUS:SBE=${CUMULUS_SBE_IMG:p},HCODE=${${CUMULUS_HCODE_IMG}:P},OCC=${${CUMULUS_OCC_IMG}:P},HBD_RO=${${CUMULUS_HBD_RO_IMG}:P}
+     .endif
+     GEN_ZZ_BIN_FILES = ZZ:WOFDATA=${${ZZ_WOFDATA_IMG}:P},MEMD=${${ZZ_MEMD_IMG}:P}
+     GEN_ZEPPELIN_BIN_FILES = ZEPPELIN:WOFDATA=${${ZEPPELIN_WOFDATA_IMG}:P}
+@@ -294,7 +294,7 @@ ZZ_MEMD_FINAL_IMG = ZZ.MEMD.bin
+                              --hwKeyHashFile ${IMPRINT_HW_KEY_HASH}
+ .else
+     # Parameters passed into GEN_PNOR_IMAGE_SCRIPT.
+-    GEN_NIMBUS_BIN_FILES = NIMBUS:HCODE=${${NIMBUS_HCODE_IMG}:P},HBD=${${NIMBUS_VPO_HBD_IMG}:P}
++    GEN_NIMBUS_BIN_FILES = NIMBUS:HCODE=${${NIMBUS_HCODE_IMG}:P},HBD_RO=${${NIMBUS_VPO_HBD_RO_IMG}:P}
+     GEN_CUMULUS_BIN_FILES = CUMULUS:HCODE=${${CUMULUS_HCODE_IMG}:P}
+     SYSTEM_SPECIFIC_PARAMS = --pnorLayout ${PNOR_LAYOUT} \
+                              --systemBinFiles ${GEN_NIMBUS_BIN_FILES} \
+@@ -307,7 +307,7 @@ gen_system_specific_images_bypass_cache :
+ 
+ 	#for NIMBUS fake pnor skip version header
+ 	.if(${FAKEPNOR} != "")
+-	dd if=${${NIMBUS_VPO_HBD_IMG}:P} of=${NIMBUS_HBD_FINAL_IMG} ibs=4k skip=1 conv=sync
++	dd if=${${NIMBUS_VPO_HBD_RO_IMG}:P} of=${NIMBUS_HBD_RO_FINAL_IMG} ibs=4k skip=1 conv=sync
+ 	.endif
+ 
+ 	# @TODO RTC 178235 Remove Symbolic Link Creation Below
+@@ -322,12 +322,12 @@ gen_system_specific_images: build_sbe_partitions .PMAKE
+ 
+ .if(${DEFAULT_PNOR} == 1)
+     HOSTBOOT_DEFAULT_SECTIONS = HBBL=${HBBL_FINAL_IMG},HBB=${HBB_FINAL_IMG},HBI=${HBI_FINAL_IMG},HBRT=${HBRT_FINAL_IMG},TEST=${TEST_FINAL_IMG},TESTRO=${TESTRO_FINAL_IMG},HBEL=${HBEL_FINAL_IMG},GUARD=${GUARD_FINAL_IMG},GLOBAL=${GLOBAL_FINAL_IMG},PAYLOAD=${PAYLOAD_FINAL_IMG},CVPD=${CVPD_FINAL_IMG},MVPD=${MVPD_FINAL_IMG},DJVPD=${DJVPD_FINAL_IMG},RINGOVD=${RINGOVD_FINAL_IMG},SBKT=${SBKT_FINAL_IMG},FIRDATA=${FIRDATA_FINAL_IMG},MEMD=${MEMD_FINAL_IMG}
+-    NIMBUS_SECT = HBD=${NIMBUS_HBD_FINAL_IMG},SBE=${NIMBUS_SBE_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG},OCC=${NIMBUS_OCC_FINAL_IMG},WOFDATA=${ZZ_WOFDATA_FINAL_IMG}
+-    CUMULUS_SECT = HBD=${CUMULUS_HBD_FINAL_IMG},SBE=${CUMULUS_SBE_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG},OCC=${CUMULUS_OCC_FINAL_IMG},WOFDATA=${ZEPPELIN_WOFDATA_FINAL_IMG}
++    NIMBUS_SECT = HBD_RO=${NIMBUS_HBD_RO_FINAL_IMG},SBE=${NIMBUS_SBE_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG},OCC=${NIMBUS_OCC_FINAL_IMG},WOFDATA=${ZZ_WOFDATA_FINAL_IMG}
++    CUMULUS_SECT = HBD_RO=${CUMULUS_HBD_RO_FINAL_IMG},SBE=${CUMULUS_SBE_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG},OCC=${CUMULUS_OCC_FINAL_IMG},WOFDATA=${ZEPPELIN_WOFDATA_FINAL_IMG}
+ .else
+     HOSTBOOT_DEFAULT_SECTIONS = HBBL=${HBBL_FINAL_IMG},HBB=${HBB_FINAL_IMG},HBI=${HBI_FINAL_IMG},HBRT=${HBRT_FINAL_IMG},HBEL=${HBEL_FINAL_IMG},GUARD=${GUARD_FINAL_IMG},GLOBAL=${GLOBAL_FINAL_IMG},CVPD=${CVPD_FINAL_IMG},MVPD=${MVPD_FINAL_IMG},DJVPD=${DJVPD_FINAL_IMG},RINGOVD=${RINGOVD_FINAL_IMG},SBKT=${SBKT_FINAL_IMG},MEMD=${MEMD_FINAL_IMG}
+-    NIMBUS_SECT = HBD=${NIMBUS_HBD_FINAL_IMG},SBE=${NIMBUS_SBE_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG},OCC=${NIMBUS_OCC_FINAL_IMG},WOFDATA=${ZZ_WOFDATA_FINAL_IMG}
+-    CUMULUS_SECT = HBD=${CUMULUS_HBD_FINAL_IMG},SBE=${CUMULUS_SBE_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG},OCC=${CUMULUS_OCC_FINAL_IMG},WOFDATA=${ZEPPELIN_WOFDATA_FINAL_IMG}
++    NIMBUS_SECT = HBD_RO=${NIMBUS_HBD_RO_FINAL_IMG},SBE=${NIMBUS_SBE_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG},OCC=${NIMBUS_OCC_FINAL_IMG},WOFDATA=${ZZ_WOFDATA_FINAL_IMG}
++    CUMULUS_SECT = HBD_RO=${CUMULUS_HBD_RO_FINAL_IMG},SBE=${CUMULUS_SBE_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG},OCC=${CUMULUS_OCC_FINAL_IMG},WOFDATA=${ZEPPELIN_WOFDATA_FINAL_IMG}
+ .endif
+ PNOR_IMG_INFO = \
+    nimbus.pnor:${PNOR_LAYOUT}:${NIMBUS_SECT},${HOSTBOOT_DEFAULT_SECTIONS} \
+@@ -342,8 +342,8 @@ PNOR_IMG_INFO = \
+ #    some limitations of GEN_PNOR_IMAGE_SCRIPT at the time of porting to p9
+ .if(${FAKEPNOR} != "")
+     HOSTBOOT_DEFAULT_SECTIONS = HBI=${HBI_FINAL_IMG},HBEL=${HBEL_FINAL_IMG},MVPD=${MVPD_FINAL_IMG},DJVPD=${DJVPD_FINAL_IMG},CVPD=${VPO_FAKE_DVPD},FIRDATA=${FIRDATA_FINAL_IMG}
+-    NIMBUS_SECT = HBD=${NIMBUS_HBD_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG}
+-    CUMULUS_SECT = HBD=${CUMULUS_HBD_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG}
++    NIMBUS_SECT = HBD_RO=${NIMBUS_HBD_RO_FINAL_IMG},HCODE=${NIMBUS_HCODE_FINAL_IMG}
++    CUMULUS_SECT = HBD_RO=${CUMULUS_HBD_RO_FINAL_IMG},HCODE=${CUMULUS_HCODE_FINAL_IMG}
+     PNOR_IMG_INFO = \
+         ${FAKEPNOR}:${PNOR_LAYOUT}:${NIMBUS_SECT}:${CUMULUS_SECT},${HOSTBOOT_DEFAULT_SECTIONS} \
+         ${FIPS_PNOR_INFO}
+diff --git a/src/include/usr/pnor/pnor_const.H b/src/include/usr/pnor/pnor_const.H
+index 4bc6b4a..8259672 100644
+--- a/src/include/usr/pnor/pnor_const.H
++++ b/src/include/usr/pnor/pnor_const.H
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2015,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2015,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -49,7 +49,8 @@ enum SectionId
+     HCODE,          /**< HCODE Reference image */
+     PAYLOAD,        /**< HAL/OPAL */
+     HB_RUNTIME,     /**< Hostboot Runtime (for Sapphire) */
+-    HB_DATA,        /**< Hostboot Data */
++    HB_DATA_RO,     /**< Hostboot Data : READ-ONLY */
++    HB_DATA_RW,     /**< Hostboot Data : Read-Write */
+     GUARD_DATA,     /**< Guard Data */
+     HB_ERRLOGS,     /**< Hostboot Error log Repository */
+     DIMM_JEDEC_VPD, /**< DIMM JEDEC VPD */
+diff --git a/src/usr/pnor/pnor_utils.C b/src/usr/pnor/pnor_utils.C
+index dc94c56..c0fe56e 100644
+--- a/src/usr/pnor/pnor_utils.C
++++ b/src/usr/pnor/pnor_utils.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2011,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2011,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -386,7 +386,7 @@ bool PNOR::isEnforcedSecureSection(const uint32_t i_section)
+     #else
+         return i_section == HB_BOOTLOADER ||
+                i_section == HB_EXT_CODE ||
+-               i_section == HB_DATA ||
++               i_section == HB_DATA_RO ||
+                i_section == SBE_IPL ||
+                i_section == PAYLOAD ||
+                i_section == SBKT ||
+@@ -410,7 +410,7 @@ bool PNOR::isCoreRootOfTrustSection(const PNOR::SectionId i_section)
+     #else
+         return i_section == HB_BOOTLOADER ||
+                i_section == HB_EXT_CODE ||
+-               i_section == HB_DATA ||
++               i_section == HB_DATA_RO ||
+                i_section == SBE_IPL ||
+                i_section == HB_BASE_CODE;
+     #endif
+@@ -440,7 +440,8 @@ const char * PNOR::SectionIdToString( uint32_t i_secIdIndex )
+         "HCODE",       /**< PNOR::HCODE          : HCODE Reference image */
+         "PAYLOAD",     /**< PNOR::PAYLOAD        : HAL/OPAL */
+         "HBRT",        /**< PNOR::HB_RUNTIME     : Hostboot Runtime(for Sapphire)*/
+-        "HBD",         /**< PNOR::HB_DATA        : Hostboot Data */
++        "HBD_RO",      /**< PNOR::HB_DATA_RO     : Hostboot Data : READ-ONLY */
++        "HBD_RW",      /**< PNOR::HB_DATA_RW     : Hostboot Data : Read-Write */
+         "GUARD",       /**< PNOR::GUARD_DATA     : Hostboot Data */
+         "HBEL",        /**< PNOR::HB_ERRLOGS     : Hostboot Error log Repository */
+         "DJVPD",       /**< PNOR::DIMM_JEDEC_VPD : Dimm JEDEC VPD */
+diff --git a/src/usr/pnor/test/pnorrptest.H b/src/usr/pnor/test/pnorrptest.H
+index c274e92..f879eae 100644
+--- a/src/usr/pnor/test/pnorrptest.H
++++ b/src/usr/pnor/test/pnorrptest.H
+@@ -70,7 +70,7 @@ class PnorRpTest : public CxxTest::TestSuite
+         const PNOR::SectionId testSections[] = {
+             PNOR::TOC,            /**< Table of Contents */
+             PNOR::HB_EXT_CODE,    /**< Hostboot Extended Image */
+-            PNOR::HB_DATA,        /**< Hostboot Data */
++            PNOR::HB_DATA_RO,     /**< Hostboot Data : READ-ONLY */
+             PNOR::DIMM_JEDEC_VPD, /**< DIMM JEDEC VPD */
+             PNOR::MODULE_VPD,     /**< Module VPD */
+             PNOR::RINGOVD,        /**< Ring override data */
+diff --git a/src/usr/targeting/attrrp.C b/src/usr/targeting/attrrp.C
+index b4d5ce1..8d192ab 100755
+--- a/src/usr/targeting/attrrp.C
++++ b/src/usr/targeting/attrrp.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2011,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2011,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -48,6 +48,7 @@
+ #include <initservice/initserviceif.H>
+ #include <util/align.H>
+ #include <util/utilrsvdmem.H>
++#include <util/misc.H>
+ #include <sys/misc.h>
+ #include <fapi2/plat_attr_override_sync.H>
+ #include <targeting/attrPlatOverride.H>
+@@ -341,29 +342,61 @@ namespace TARGETING
+         do
+         {
+             #ifdef CONFIG_SECUREBOOT
+-            // Securely load HB_DATA section
+-            l_errl = PNOR::loadSecureSection(PNOR::HB_DATA);
++            // Securely load HB_DATA_RO section
++            l_errl = PNOR::loadSecureSection(PNOR::HB_DATA_RO);
+             if (l_errl)
+             {
+                 break;
+             }
+             #endif
+ 
+-            // Locate attribute section in PNOR.
+-            PNOR::SectionInfo_t l_pnorSectionInfo;
++            // Locate attribute READ-ONLY section in PNOR.
++            PNOR::SectionInfo_t l_pnorSectionInfo_RO;
+             TargetingHeader* l_header = nullptr;
+-            l_errl = PNOR::getSectionInfo(PNOR::HB_DATA,
+-                                          l_pnorSectionInfo);
++            l_errl = PNOR::getSectionInfo(PNOR::HB_DATA_RO,
++                                          l_pnorSectionInfo_RO);
+             if(l_errl)
+             {
+                 break;
+             }
+ 
++            // Locate attribute Read-Write section in PNOR.
++            bool l_HBD_RW_exists = false;
++            PNOR::SectionInfo_t l_pnorSectionInfo_RW;
++            l_errl = PNOR::getSectionInfo(PNOR::HB_DATA_RW,
++                                          l_pnorSectionInfo_RW);
++            if(l_errl)
++            {
++                // For op910 standalone simics HBD_RO contains the R/W
++                // attributes and HBD_RW is not used. Delete the error and
++                // continue
++                if (Util::isSimicsRunning())
++                {
++                    TRACFCOMP(g_trac_targeting,
++                             "Expected fail of getSectionInfo(HBD_DATA_RW) in "
++                             "simics so ignoring error and continuing");
++                    delete l_errl;
++                    l_errl = nullptr;
++                }
++                else
++                {
++                    // For HW we need HBD_RW to be present so break here
++                    TRACFCOMP(g_trac_targeting,
++                              "getSectionInfo(HBD_DATA_RW) returned an error");
++                    break;
++                }
++
++            }
++            else
++            {
++                l_HBD_RW_exists = true;
++            }
++
+             if(!iv_isMpipl)
+             {
+                 // Find attribute section header.
+                 l_header =
+-                reinterpret_cast<TargetingHeader*>(l_pnorSectionInfo.vaddr);
++                reinterpret_cast<TargetingHeader*>(l_pnorSectionInfo_RO.vaddr);
+             }
+             else
+             {
+@@ -549,7 +582,7 @@ namespace TARGETING
+                 //          (PNOR addr + size of header + offset in header).
+                 l_section =
+                         reinterpret_cast<TargetingSection*>(
+-                                l_pnorSectionInfo.vaddr + sizeof(TargetingHeader) +
++                                l_pnorSectionInfo_RO.vaddr + sizeof(TargetingHeader) +
+                                 l_header->offsetToSections
+                         );
+             }
+@@ -578,19 +611,33 @@ namespace TARGETING
+                 // cache is of a different type, we first cast to extract the
+                 // real pointer, then recast it into the cache
+                 iv_sections[i].vmmAddress =
+-                        static_cast<uint64_t>(
+-                            TARG_TO_PLAT_PTR(l_header->vmmBaseAddress)) +
+-                        l_header->vmmSectionOffset*i;
+-
++                            static_cast<uint64_t>(
++                               TARG_TO_PLAT_PTR(l_header->vmmBaseAddress)) +
++                            l_header->vmmSectionOffset*i;
+ 
+-                iv_sections[i].pnorAddress =
+-                    l_pnorSectionInfo.vaddr + l_section->sectionOffset;
++                if ((iv_sections[i].type == SECTION_TYPE_PNOR_RW) &&
++                    (l_HBD_RW_exists == true))
++                {
++                    // For release-op910, the SECTION_TYPE_PNOR_RW was moved
++                    // to its own HBD_RW (aka "HB_DATA_RW") PNOR partition,
++                    // so use its values here
++                    iv_sections[i].pnorAddress =
++                        l_pnorSectionInfo_RW.vaddr;
++                }
++                else
++                {
++                    iv_sections[i].pnorAddress =
++                        l_pnorSectionInfo_RO.vaddr + l_section->sectionOffset;
++                }
+ 
+                 #ifdef CONFIG_SECUREBOOT
+                 // RW targeting section is part of the unprotected payload
+                 // so use the normal PNOR virtual address space
+-                if(   l_pnorSectionInfo.secure
+-                   && iv_sections[i].type == SECTION_TYPE_PNOR_RW)
++                // NOTE: For release-op910 SECTION_TYPE_PNOR_RW was moved to its
++                // own unsecure partition, so it doesn't need this adjustment
++                if( (l_pnorSectionInfo_RO.secure
++                       && iv_sections[i].type == SECTION_TYPE_PNOR_RW)
++                     && (l_HBD_RW_exists == false))
+                 {
+                     iv_sections[i].pnorAddress -=
+                         (VMM_VADDR_SPNOR_DELTA + VMM_VADDR_SPNOR_DELTA);
+@@ -602,7 +649,8 @@ namespace TARGETING
+                     //For MPIPL we are reading from real memory,
+                     //not pnor flash. Set the real memory address
+                     iv_sections[i].realMemAddress =
+-                        reinterpret_cast<uint64_t>(l_header) + l_realMemOffset;
++                        reinterpret_cast<uint64_t>(l_header) +
++                            l_realMemOffset;
+                 }
+                 iv_sections[i].size = l_section->sectionSize;
+ 
+-- 
+1.8.2.2
+

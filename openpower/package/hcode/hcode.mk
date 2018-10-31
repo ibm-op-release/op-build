@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-HCODE_VERSION ?= 9a2560e8ecc38703734d9e1b9fadc83827fee669
+HCODE_VERSION = $(call qstrip,$(BR2_HCODE_VERSION))
 HCODE_SITE = $(call github,ibm-op-release,hcode,$(HCODE_VERSION))
 
 HCODE_LICENSE = Apache-2.0

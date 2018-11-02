@@ -1,7 +1,7 @@
-From 9eb12d5eed013043b2f30091cc577064de58f600 Mon Sep 17 00:00:00 2001
+From 41ea9ed46f8909fe85d46eada0f39c38f286bd8a Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Thu, 14 Sep 2017 14:45:32 -0700
-Subject: [PATCH 1/4] Modified Patch-change PEC2 on 2nd proc to x16 on certain
+Subject: [PATCH 1/5] Modified Patch-change PEC2 on 2nd proc to x16 on certain
  WIO
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
@@ -11,10 +11,10 @@ Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
  2 files changed, 65 insertions(+), 1 deletion(-)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index 55546d13e..2978a6357 100644
+index 67b5750f5..058ce8de1 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
-@@ -239,6 +239,8 @@ namespace IPMI
+@@ -236,6 +236,8 @@ namespace IPMI
      inline const command_t get_capabilities(void)
      { return std::make_pair(NETFUN_APP, 0x36); }
  
@@ -24,7 +24,7 @@ index 55546d13e..2978a6357 100644
      // Chassis messages
      inline const command_t chassis_power_off(void)
 diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-index ff9075b4f..7a4679896 100644
+index c8ad71d4f..e9883576a 100644
 --- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 +++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 @@ -46,6 +46,7 @@
@@ -35,7 +35,7 @@ index ff9075b4f..7a4679896 100644
  
  
  namespace   ISTEP_10
-@@ -334,6 +335,32 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+@@ -337,6 +338,32 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
          i_pProcChipTarget ?
              i_pProcChipTarget->getAttr<TARGETING::ATTR_HUID>() : 0);
  
@@ -68,8 +68,8 @@ index ff9075b4f..7a4679896 100644
      // Currently there are three PEC config tables for procs with 48 usable PCIE
      // lanes. In general, the code accumulates the current configuration of
      // the PECs from the MRW and other dynamic information(such as bifurcation)
-@@ -646,6 +673,18 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
- 
+@@ -643,6 +670,18 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+                   TARGETING::ATTR_PEC_PCIE_IOP_REVERSAL>(effectiveLaneReversal);
  #endif
  
 +				//PEC2 on 2nd processor needs to be x16 for RSC-W2-6688P(2U WIO, riser ID 0x6) and RSC-W-66P(1U WIO, riser ID 0xe)
@@ -86,10 +86,10 @@ index ff9075b4f..7a4679896 100644
 +
                  l_pec->setAttr<
                    TARGETING::ATTR_PROC_PCIE_LANE_MASK>(effectiveLaneMask);
- 
-@@ -682,6 +721,24 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+             }
+@@ -678,6 +717,24 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
                      PHB_X16_MAC_MAP,
-                    };
+                   };
  
 +			if((i_pProcChipTarget->getAttr<TARGETING::ATTR_HUID>() == 0x50001) && 
 +				(l_pecID == 2) &&
@@ -112,7 +112,7 @@ index ff9075b4f..7a4679896 100644
              // Transform effective config to match lane config table format
              for(size_t laneGroup = 0;
                  laneGroup < MAX_LANE_GROUPS_PER_PEC;
-@@ -689,6 +746,7 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+@@ -685,6 +742,7 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
              {
                  effectiveConfig.laneSet[laneGroup].width
                      = _laneMaskToLaneWidth(effectiveLaneMask[laneGroup]);
@@ -120,7 +120,7 @@ index ff9075b4f..7a4679896 100644
              }
  
              const laneConfigRow* laneConfigItr =
-@@ -703,7 +761,11 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
+@@ -699,7 +757,11 @@ errlHndl_t computeProcPcieConfigAttrs(TARGETING::Target * i_pProcChipTarget)
                  refEnable = 0x1;
                  macCntl = laneConfigItr->phb_to_pcieMAC;
                  pecPhbActiveMask = laneConfigItr->phbActive;

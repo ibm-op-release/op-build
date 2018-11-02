@@ -1,7 +1,7 @@
-From 68a440863a02fcbe1d94bbc1ac6e8b1343fcc1fd Mon Sep 17 00:00:00 2001
+From ea0afb5394b3a6450fa3edbe988834befc603f2f Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Thu, 15 Feb 2018 17:34:24 -0800
-Subject: [PATCH 3/4] set system type to Boston LA 1U, 2U and Boston LA/ESS.
+Subject: [PATCH 3/5] set system type to Boston LA 1U, 2U and Boston LA/ESS.
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
@@ -25,10 +25,10 @@ index 664a966e9..90a1b595e 100644
      //  get a list of all the procs in the system
      //
 diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-index 7a4679896..4f6b06f42 100644
+index e9883576a..c706b0e03 100644
 --- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 +++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-@@ -324,6 +324,77 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
+@@ -327,6 +327,77 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
  }
  
  

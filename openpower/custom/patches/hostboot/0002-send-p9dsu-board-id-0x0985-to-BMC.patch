@@ -1,18 +1,18 @@
-From fc542f66cf41da8a2b58022d5ae58b1857de7469 Mon Sep 17 00:00:00 2001
+From fc6aec46385736c34cdf3a94b1bf83bd433c3a67 Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Tue, 18 Apr 2017 10:49:09 -0700
-Subject: [PATCH 2/4] send p9dsu board id 0x0985 to BMC.
+Subject: [PATCH 2/5] send p9dsu board id 0x0985 to BMC.
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
 ---
  src/include/usr/ipmi/ipmiif.H                      |  6 ++++-
  src/include/usr/ipmi/ipmipowerstate.H              |  2 +-
  .../initservice/istepdispatcher/istepdispatcher.C  | 11 ++++++++
- src/usr/ipmi/ipmipowerstate.C                      | 29 ++++++++++++++++++++++
+ src/usr/ipmiext/ipmipowerstate.C                   | 29 ++++++++++++++++++++++
  4 files changed, 46 insertions(+), 2 deletions(-)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index 2978a6357..b8006cc09 100644
+index 058ce8de1..fb248c892 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
 @@ -298,7 +298,11 @@ namespace IPMI
@@ -42,10 +42,10 @@ index b65275075..e943e8b66 100644
  
  #endif
 diff --git a/src/usr/initservice/istepdispatcher/istepdispatcher.C b/src/usr/initservice/istepdispatcher/istepdispatcher.C
-index 56be31a44..7a59b9386 100644
+index 0cebd9cea..c69ffc5d5 100644
 --- a/src/usr/initservice/istepdispatcher/istepdispatcher.C
 +++ b/src/usr/initservice/istepdispatcher/istepdispatcher.C
-@@ -356,6 +356,17 @@ void IStepDispatcher::init(errlHndl_t &io_rtaskRetErrl)
+@@ -357,6 +357,17 @@ void IStepDispatcher::init(errlHndl_t &io_rtaskRetErrl)
              err_ipmi->collectTrace("INITSVC", 1024);
              errlCommit(err_ipmi, INITSVC_COMP_ID );
          }
@@ -63,10 +63,10 @@ index 56be31a44..7a59b9386 100644
  #endif
  
          if(iv_istepMode)
-diff --git a/src/usr/ipmi/ipmipowerstate.C b/src/usr/ipmi/ipmipowerstate.C
-index 95d661a6e..9d55b2943 100644
---- a/src/usr/ipmi/ipmipowerstate.C
-+++ b/src/usr/ipmi/ipmipowerstate.C
+diff --git a/src/usr/ipmiext/ipmipowerstate.C b/src/usr/ipmiext/ipmipowerstate.C
+index b76200d26..4969b3efe 100644
+--- a/src/usr/ipmiext/ipmipowerstate.C
++++ b/src/usr/ipmiext/ipmipowerstate.C
 @@ -51,6 +51,35 @@ namespace IPMI
  /******************************************************************************/
  // Functions

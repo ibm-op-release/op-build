@@ -89,7 +89,7 @@ endif
 ifeq ($(BR2_PACKAGE_HOSTBOOT),y)
 OPENPOWER_VERSIONED_SUBPACKAGES += hostboot occ
 endif
-OPENPOWER_VERSIONED_SUBPACKAGES += linux petitboot machine-xml
+OPENPOWER_VERSIONED_SUBPACKAGES += linux petitboot machine-xml hostboot-binaries capp-ucode
 OPENPOWER_PNOR = openpower-pnor
 
 ifeq ($(BR2_OPENPOWER_POWER9),y)

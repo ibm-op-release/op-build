@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OPENPOWER_PNOR_VERSION ?= 98e21bb067804e4528321af5c7188f269c21601c
+OPENPOWER_PNOR_VERSION ?= 8cbb9c0ac60abea1501c80c061a6ea2f2178a6d9
 OPENPOWER_PNOR_SITE ?= $(call github,ibm-op-release,pnor,$(OPENPOWER_PNOR_VERSION))
 
 OPENPOWER_PNOR_LICENSE = Apache-2.0

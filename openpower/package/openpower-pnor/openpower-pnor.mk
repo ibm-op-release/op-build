@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OPENPOWER_PNOR_VERSION ?= 864bec404e8d5a5ee19e3d5478b290cdf6ef7cab
+OPENPOWER_PNOR_VERSION ?= 2e68ed6a605d709e09fe268366565a3f10afec31
 OPENPOWER_PNOR_SITE ?= $(call github,open-power,pnor,$(OPENPOWER_PNOR_VERSION))
 
 OPENPOWER_PNOR_LICENSE = Apache-2.0
@@ -86,8 +86,8 @@ OPENPOWER_VERSIONED_SUBPACKAGES = skiboot hostboot linux petitboot machine-xml o
 OPENPOWER_PNOR = openpower-pnor
 
 ifeq ($(BR2_OPENPOWER_POWER9),y)
-    OPENPOWER_PNOR_DEPENDENCIES += sbe
-    OPENPOWER_VERSIONED_SUBPACKAGES += sbe
+    OPENPOWER_PNOR_DEPENDENCIES += sbe hcode
+    OPENPOWER_VERSIONED_SUBPACKAGES += sbe hcode
 endif
 
 define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
@@ -136,7 +136,7 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
             -targeting_binary_filename $(BR2_OPENPOWER_TARGETING_ECC_FILENAME) \
             -wofdata_binary_filename $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_WOFDATA_BINARY_FILENAME) \
             -memddata_binary_filename $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_MEMDDATA_BINARY_FILENAME) \
-            -openpower_version_filename $(OPENPOWER_PNOR_VERSION_FILE)
+            -openpower_version_filename $(OPENPOWER_PNOR_SCRATCH_DIR)/openpower_pnor_version.bin
 
         $(INSTALL) $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME) $(BINARIES_DIR)
 
@@ -150,11 +150,14 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
         # If this is a VPNOR system, run the generate-squashfs command and
         # create a tarball
         if [ "$(BR2_BUILD_PNOR_SQUASHFS)" == "y" ]; then \
-            PATH=$(HOST_DIR)/usr/bin:$(PATH) $(HOST_DIR)/usr/bin/generate-squashfs -f $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME).squashfs.tar $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME); \
+            PATH=$(HOST_DIR)/usr/bin:$(PATH) $(HOST_DIR)/usr/bin/generate-squashfs -f $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME).squashfs.tar $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME) -s; \
             $(INSTALL) $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME).squashfs.tar $(BINARIES_DIR); \
         fi
 
-	    tar --transform 's/.*\///g' -zcvf $(OUTPUT_IMAGES_DIR)/host_fw_debug.tar $(FILES_TO_TAR)
+	#Create Debug Tarball
+	mkdir -p $(STAGING_DIR)/pnor/host_fw_debug_tarball_files/
+	cp -r $(FILES_TO_TAR) $(STAGING_DIR)/pnor/host_fw_debug_tarball_files/
+	tar -zcvf $(OUTPUT_IMAGES_DIR)/host_fw_debug.tar -C $(STAGING_DIR)/pnor/host_fw_debug_tarball_files/  .
 
 endef
 

@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-HCODE_VERSION ?= 14a103eb369c70123f8f251c9a10cdf251e5d54c
+HCODE_VERSION ?= aa29996aa300f858814ec7909bdcbfb7408d1d3e
 HCODE_SITE = $(call github,ibm-op-release,hcode,$(HCODE_VERSION))
 
 HCODE_LICENSE = Apache-2.0

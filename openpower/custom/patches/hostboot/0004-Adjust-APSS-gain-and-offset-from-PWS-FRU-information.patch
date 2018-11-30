@@ -1,4 +1,4 @@
-From 5a8bfe8ebd456d6f6612f9e31e906c374d97c9ca Mon Sep 17 00:00:00 2001
+From 0149b1520364e4926323926863391c27eaf5ea4b Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Wed, 16 May 2018 10:51:06 -0700
 Subject: [PATCH 4/5] Adjust APSS gain and offset from PWS FRU information.
@@ -13,10 +13,10 @@ Subject: [PATCH 4/5] Adjust APSS gain and offset from PWS FRU information.
  6 files changed, 222 insertions(+)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index fb248c892..096f59d24 100644
+index c0cb8741b..ea9c8c9f6 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
-@@ -251,6 +251,9 @@ namespace IPMI
+@@ -261,6 +261,9 @@ namespace IPMI
      inline const command_t set_sel_time(void)
      { return std::make_pair(NETFUN_STORAGE, 0x49); }
  

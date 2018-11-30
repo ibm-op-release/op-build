@@ -1,4 +1,4 @@
-From fc6aec46385736c34cdf3a94b1bf83bd433c3a67 Mon Sep 17 00:00:00 2001
+From 3b19433c3c2a2f67f8037f037aedb4e81e046c05 Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Tue, 18 Apr 2017 10:49:09 -0700
 Subject: [PATCH 2/5] send p9dsu board id 0x0985 to BMC.
@@ -12,10 +12,10 @@ Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
  4 files changed, 46 insertions(+), 2 deletions(-)
 
 diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index 058ce8de1..fb248c892 100644
+index ee69d6bd2..c0cb8741b 100644
 --- a/src/include/usr/ipmi/ipmiif.H
 +++ b/src/include/usr/ipmi/ipmiif.H
-@@ -298,7 +298,11 @@ namespace IPMI
+@@ -308,7 +308,11 @@ namespace IPMI
      // user defined power limit from the BMC.
      inline const command_t get_power_limit(void)
      { return std::make_pair(NETFUN_GRPEXT, 0x03); }

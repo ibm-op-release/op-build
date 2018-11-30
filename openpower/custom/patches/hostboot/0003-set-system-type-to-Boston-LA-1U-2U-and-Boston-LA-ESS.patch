@@ -1,4 +1,4 @@
-From ea0afb5394b3a6450fa3edbe988834befc603f2f Mon Sep 17 00:00:00 2001
+From b0f46e4f17267f37e610376f311699269db8ab33 Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Thu, 15 Feb 2018 17:34:24 -0800
 Subject: [PATCH 3/5] set system type to Boston LA 1U, 2U and Boston LA/ESS.
@@ -120,7 +120,7 @@ index 96e7ca273..8078bae39 100644
   *  @brief Computes PCIE configuration attributes based on MRW values
   *
 diff --git a/src/usr/targeting/common/xmltohb/attribute_types.xml b/src/usr/targeting/common/xmltohb/attribute_types.xml
-index 95a4588a7..34b1b491e 100755
+index 8bccd32e6..e76987eed 100755
 --- a/src/usr/targeting/common/xmltohb/attribute_types.xml
 +++ b/src/usr/targeting/common/xmltohb/attribute_types.xml
 @@ -4249,6 +4249,7 @@

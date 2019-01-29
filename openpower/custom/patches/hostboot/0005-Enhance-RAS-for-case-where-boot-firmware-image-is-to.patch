@@ -1,0 +1,132 @@
+From a683401f571aaf1ba0cf543c3fe88addee2b2723 Mon Sep 17 00:00:00 2001
+From: Nick Bofferding <bofferdn@us.ibm.com>
+Date: Fri, 6 Jul 2018 13:46:35 -0500
+Subject: [PATCH 5/5] Enhance RAS for case where boot firmware image is too big
+ to load
+
+Provides a better fail indicator when the boot firmware image
+is too big to load
+
+Change-Id: Ibb8765dec430b4e38de1d82e74e144c7ea8f3959
+CQ: SW437090
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/61992
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Tested-by: FSP CI Jenkins <fsp-CI-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ src/bootloader/bootloader.C               | 35 +++++++++++++++++++++++++++++--
+ src/build/debug/Hostboot/BlTrace.pm       |  1 +
+ src/include/bootloader/bootloader_trace.H |  5 ++++-
+ src/include/bootloader/hbblreasoncodes.H  |  3 ++-
+ 4 files changed, 40 insertions(+), 4 deletions(-)
+
+diff --git a/src/bootloader/bootloader.C b/src/bootloader/bootloader.C
+index eed79770d..5d6df8309 100644
+--- a/src/bootloader/bootloader.C
++++ b/src/bootloader/bootloader.C
+@@ -445,11 +445,42 @@ namespace Bootloader{
+             bool l_hbbEcc =
+                 ( g_blData->bl_hbbSection.integrity == FFS_INTEG_ECC_PROTECT);
+ 
++            uint32_t workingLength= (l_hbbEcc) ?
++                (l_hbbLength * LENGTH_W_ECC)/LENGTH_WO_ECC : l_hbbLength;
++
++            // handleMMIO below always moves WORDSIZE chunks at a time, even
++            // if there is just one byte left, so subtract WORDSIZE from the
++            // limit to compensate
++            if(workingLength > (MEGABYTE-WORDSIZE))
++            {
++                BOOTLOADER_TRACE(BTLDR_TRC_BAD_WORK_LEN);
++                /*@
++                 * @errortype
++                 * @moduleid         Bootloader::MOD_BOOTLOADER_MAIN
++                 * @reasoncode       Bootloader::RC_BAD_WORK_LEN
++                 * @userdata1[0:15]  TI_WITH_SRC
++                 * @userdata1[16:31] TI_BOOTLOADER
++                 * @userdata1[32:63] Failing address = 0
++                 * @userdata2[0:31]  Length of data from TOC (bytes)
++                 * @userdata2[32:63] Working length (bytes)
++                 * @errorInfo[0:31]  Max space available (bytes)
++                 * @devdesc  Not enough memory to load boot firmware
++                 * @custdesc Failed to load boot firmware
++                 */
++                bl_terminate(
++                    MOD_BOOTLOADER_MAIN,
++                    RC_BAD_WORK_LEN,
++                    l_hbbLength,
++                    workingLength,
++                    true,
++                    0,
++                    (MEGABYTE-WORDSIZE));
++            }
++
+             // Copy HB base code from PNOR to working location
+             handleMMIO(l_pnorStart + l_hbbFlashOffset,
+                        (l_hbbEcc) ? HBB_ECC_WORKING_ADDR : HBB_WORKING_ADDR,
+-                       (l_hbbEcc) ? (l_hbbLength * LENGTH_W_ECC)/LENGTH_WO_ECC
+-                                  : l_hbbLength,
++                       workingLength,
+                        WORDSIZE);
+             BOOTLOADER_TRACE(BTLDR_TRC_MAIN_WORKING_HANDLEMMIO_RTN);
+ 
+diff --git a/src/build/debug/Hostboot/BlTrace.pm b/src/build/debug/Hostboot/BlTrace.pm
+index 339c92c6e..dc001a103 100644
+--- a/src/build/debug/Hostboot/BlTrace.pm
++++ b/src/build/debug/Hostboot/BlTrace.pm
+@@ -43,6 +43,7 @@ my %traceText = (
+     "19" => "Main verify skip verification - SAB unset ",
+     "1A" => "Main verify component ID succeeded",
+     "1B" => "Main verify component ID failed",
++    "1C" => "Main working length too big",
+     "20" => "HandleMMIO started",
+     "21" => "HandleMMIO started using BYTESIZE",
+     "24" => "HandleMMIO started using WORDSIZE",
+diff --git a/src/include/bootloader/bootloader_trace.H b/src/include/bootloader/bootloader_trace.H
+index 313afbada..394929b75 100644
+--- a/src/include/bootloader/bootloader_trace.H
++++ b/src/include/bootloader/bootloader_trace.H
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2015,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2015,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -79,6 +79,9 @@ enum BootloaderTraces
+     /** Bootloader main verifyComponentId failed */
+     BTLDR_TRC_COMP_ID_VERIFY_FAILED          = 0x1B,
+ 
++    /** Bootloader main working length too big */
++    BTLDR_TRC_BAD_WORK_LEN                   = 0x1C,
++
+     /** Bootloader handleMMIO started */
+     BTLDR_TRC_HANDLEMMIO_START               = 0x20,
+ 
+diff --git a/src/include/bootloader/hbblreasoncodes.H b/src/include/bootloader/hbblreasoncodes.H
+index 213e3dfe9..e50def492 100644
+--- a/src/include/bootloader/hbblreasoncodes.H
++++ b/src/include/bootloader/hbblreasoncodes.H
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2016,2017                        */
++/* Contributors Listed Below - COPYRIGHT 2016,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -74,6 +74,7 @@ namespace Bootloader
+         RC_NO_HBB_IN_TOC           = HBBL_COMP_ID | 0x0C, /**< No HBB Sect in TOC */
+         RC_PNOR_SECID_OUT_OF_RANGE = HBBL_COMP_ID | 0x0D, /**< Requested PNOR SecId DNE in string array */
+         RC_PNOR_NULLPTR            = HBBL_COMP_ID | 0x0E, /**< Requested address to compare is a nullptr */
++        RC_BAD_WORK_LEN            = HBBL_COMP_ID | 0x0F, /**< Working length too large */
+     };
+ 
+ };  // end Bootloader
+-- 
+2.16.2.windows.1
+

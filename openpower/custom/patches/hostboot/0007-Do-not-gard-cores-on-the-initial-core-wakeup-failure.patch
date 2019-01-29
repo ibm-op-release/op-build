@@ -1,26 +1,45 @@
-From ee112b0d79f12d7e41dfbf4ccd7630a6bd0705d5 Mon Sep 17 00:00:00 2001
-From: carey <careyz@supermicro.com>
-Date: Mon, 28 Jan 2019 14:20:06 -0800
-Subject: [PATCH] [PATCH] Do not gard cores on the initial core wakeup failure
+From 25153ddac7cfef479dbeef21a0071ed2a91a4799 Mon Sep 17 00:00:00 2001
+From: Dan Crowell <dcrowell@us.ibm.com>
+Date: Mon, 28 Jan 2019 10:20:43 -0600
+Subject: [PATCH] Do not gard cores on the initial core wakeup failure
+
+We have seen rare (but non-zero) errors during slave core wakeup
+where we never see the new core reporting in.  Currently this
+will result in a visible log and a core gard.  However, there is
+currently no indication this failure is actually due to bad
+hardware.
+
+As a workaround, this commit adds an indicator that keeps track
+of if a core has failed wakeup previously.  The first time we
+encounter the error there will be a visible log with a FW callout
+and no deconfig or gard of the core.  That will trigger a boot
+failure and a reboot.  If we don't fail on the next boot (which
+is expected), the counter will be cleared.  If we do fail again
+there will be a visible log (with a new SRC) that calls out the
+core as the primary cause, plus does a deconfig+gard.
 
 Change-Id: I3a25537cf9c9c8e0b679519b67e9ae4e3492736d
-
-Signed-off-by: carey <careyz@supermicro.com>
+Reviewed-on: http://rchgit01.rchland.ibm.com/gerrit1/70993
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
 ---
- src/include/usr/isteps/istep_reasoncodes.H    | 15 +++
+ src/include/usr/isteps/istep_reasoncodes.H    | 16 ++-
  .../istep16/call_host_activate_slave_cores.C  | 97 ++++++++++++++++++-
  .../common/xmltohb/attribute_types.xml        | 20 +++-
  .../targeting/common/xmltohb/target_types.xml |  5 +-
- 4 files changed, 130 insertions(+), 7 deletions(-)
+ 4 files changed, 130 insertions(+), 8 deletions(-)
 
 diff --git a/src/include/usr/isteps/istep_reasoncodes.H b/src/include/usr/isteps/istep_reasoncodes.H
-index 4963c5978..d4c820783 100644
+index 744c0fbcc..bb103d065 100644
 --- a/src/include/usr/isteps/istep_reasoncodes.H
 +++ b/src/include/usr/isteps/istep_reasoncodes.H
-@@ -118,6 +118,21 @@ namespace ISTEP
+@@ -118,7 +118,21 @@ namespace ISTEP
          RC_FAILED_TO_BOOT_SBE                    = ISTEP_COMP_ID | 0x38,
          RC_REDISCOVERED_TARGETS                  = ISTEP_COMP_ID | 0x39,
          RC_P9N_LESS_THAN_DD22_NOT_SUPPORTED      = ISTEP_COMP_ID | 0x3A,
+-        RC_PNOR_IPMI_NOT_ENABLED                 = ISTEP_COMP_ID | 0x3B,
 +        RC_FREQ_ATTR_TIMER_EXPIRED               = ISTEP_COMP_ID | 0x40,
 +        RC_FREQ_ATTR_TIMER_THREAD_FAIL           = ISTEP_COMP_ID | 0x41,
 +        RC_FLOOR_FREQ_MISMATCH                   = ISTEP_COMP_ID | 0x42,

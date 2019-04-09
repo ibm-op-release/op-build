@@ -5,7 +5,7 @@
 ################################################################################
 
 SBE_VERSION = $(call qstrip,$(BR2_SBE_VERSION))
-SBE_SITE = $(call github,open-power,sbe,$(SBE_VERSION))
+SBE_SITE = $(call github,ibm-op-release,sbe,$(SBE_VERSION))
 
 SBE_LICENSE = Apache-2.0
 SBE_DEPENDENCIES = host-ppe42-gcc hcode

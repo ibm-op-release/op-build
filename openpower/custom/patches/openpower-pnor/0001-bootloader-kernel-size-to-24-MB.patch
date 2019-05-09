@@ -1,0 +1,164 @@
+From edf20f527627341b008a3f75ff405db95186d476 Mon Sep 17 00:00:00 2001
+From: jim <jim.yuan@supermicro.com>
+Date: Mon, 26 Nov 2018 11:54:42 -0800
+Subject: [PATCH] bootloader kernel size to 24 MB.
+
+---
+ p9Layouts/defaultPnorLayout_64.xml | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/p9Layouts/defaultPnorLayout_64.xml b/p9Layouts/defaultPnorLayout_64.xml
+index 04db323..c7ee1ff 100644
+--- a/p9Layouts/defaultPnorLayout_64.xml
++++ b/p9Layouts/defaultPnorLayout_64.xml
+@@ -228,10 +228,10 @@ Layout Description
+         <readOnly/>
+     </section>
+     <section>
+-        <description>Bootloader Kernel (15MB)</description>
++        <description>Bootloader Kernel (24MB)</description>
+         <eyeCatch>BOOTKERNEL</eyeCatch>
+         <physicalOffset>0x1A21000</physicalOffset>
+-        <physicalRegionSize>0xF00000</physicalRegionSize>
++        <physicalRegionSize>0x1800000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+         <readOnly/>
+@@ -239,7 +239,7 @@ Layout Description
+     <section>
+         <description>OCC Lid (1.125M)</description>
+         <eyeCatch>OCC</eyeCatch>
+-        <physicalOffset>0x2921000</physicalOffset>
++        <physicalOffset>0x3221000</physicalOffset>
+         <physicalRegionSize>0x120000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -249,7 +249,7 @@ Layout Description
+     <section>
+         <description>Checkstop FIR data (12K)</description>
+         <eyeCatch>FIRDATA</eyeCatch>
+-        <physicalOffset>0x2A41000</physicalOffset>
++        <physicalOffset>0x3341000</physicalOffset>
+         <physicalRegionSize>0x3000</physicalRegionSize>
+         <side>A</side>
+         <ecc/>
+@@ -259,7 +259,7 @@ Layout Description
+     <section>
+         <description>CAPP Lid (144K)</description>
+         <eyeCatch>CAPP</eyeCatch>
+-        <physicalOffset>0x2A44000</physicalOffset>
++        <physicalOffset>0x3344000</physicalOffset>
+         <physicalRegionSize>0x24000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -269,7 +269,7 @@ Layout Description
+     <section>
+         <description>BMC Inventory (36K)</description>
+         <eyeCatch>BMC_INV</eyeCatch>
+-        <physicalOffset>0x2A68000</physicalOffset>
++        <physicalOffset>0x3368000</physicalOffset>
+         <physicalRegionSize>0x9000</physicalRegionSize>
+         <side>sideless</side>
+         <reprovision/>
+@@ -277,7 +277,7 @@ Layout Description
+     <section>
+         <description>Hostboot Bootloader (28K)</description>
+         <eyeCatch>HBBL</eyeCatch>
+-        <physicalOffset>0x2A71000</physicalOffset>
++        <physicalOffset>0x3371000</physicalOffset>
+         <!-- Physical Size includes Header rounded to ECC valid size -->
+         <!-- Max size of actual HBBL content is 20K and 22.5K with ECC -->
+         <physicalRegionSize>0x7000</physicalRegionSize>
+@@ -289,7 +289,7 @@ Layout Description
+     <section>
+         <description>Temporary Attribute Override (32K)</description>
+         <eyeCatch>ATTR_TMP</eyeCatch>
+-        <physicalOffset>0x2A78000</physicalOffset>
++        <physicalOffset>0x3378000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>A</side>
+         <reprovision/>
+@@ -297,7 +297,7 @@ Layout Description
+     <section>
+         <description>Permanent Attribute Override (32K)</description>
+         <eyeCatch>ATTR_PERM</eyeCatch>
+-        <physicalOffset>0x2A80000</physicalOffset>
++        <physicalOffset>0x3380000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>A</side>
+         <ecc/>
+@@ -307,7 +307,7 @@ Layout Description
+     <section>
+         <description>PNOR Version (4K)</description>
+         <eyeCatch>VERSION</eyeCatch>
+-        <physicalOffset>0x2A88000</physicalOffset>
++        <physicalOffset>0x3388000</physicalOffset>
+         <physicalRegionSize>0x2000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -316,7 +316,7 @@ Layout Description
+     <section>
+         <description>IMA Catalog (256K)</description>
+         <eyeCatch>IMA_CATALOG</eyeCatch>
+-        <physicalOffset>0x2A8A000</physicalOffset>
++        <physicalOffset>0x338A000</physicalOffset>
+         <physicalRegionSize>0x40000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -326,7 +326,7 @@ Layout Description
+     <section>
+         <description>Ref Image Ring Overrides (128K)</description>
+         <eyeCatch>RINGOVD</eyeCatch>
+-        <physicalOffset>0x2ACA000</physicalOffset>
++        <physicalOffset>0x33CA000</physicalOffset>
+         <physicalRegionSize>0x20000</physicalRegionSize>
+         <side>A</side>
+     </section>
+@@ -335,7 +335,7 @@ Layout Description
+         <!-- We need 266KB per module sort, going to support
+              10 sorts by default, plus ECC  -->
+         <eyeCatch>WOFDATA</eyeCatch>
+-        <physicalOffset>0x2AEA000</physicalOffset>
++        <physicalOffset>0x33EA000</physicalOffset>
+         <physicalRegionSize>0x300000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -345,7 +345,7 @@ Layout Description
+     <section>
+         <description>Hostboot deconfig area (64KB)</description>
+         <eyeCatch>HB_VOLATILE</eyeCatch>
+-        <physicalOffset>0x2DEA000</physicalOffset>
++        <physicalOffset>0x36EA000</physicalOffset>
+         <physicalRegionSize>0x5000</physicalRegionSize>
+         <side>A</side>
+         <reprovision/>
+@@ -356,7 +356,7 @@ Layout Description
+     <section>
+         <description>Memory config data (28K)</description>
+         <eyeCatch>MEMD</eyeCatch>
+-        <physicalOffset>0x2DEF000</physicalOffset>
++        <physicalOffset>0x36EF000</physicalOffset>
+         <physicalRegionSize>0xE000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -366,7 +366,7 @@ Layout Description
+     <section>
+         <description>SecureBoot Key Transition Partition (16K)</description>
+         <eyeCatch>SBKT</eyeCatch>
+-        <physicalOffset>0x2E03000</physicalOffset>
++        <physicalOffset>0x36FD000</physicalOffset>
+         <physicalRegionSize>0x4000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -376,7 +376,7 @@ Layout Description
+     <section>
+         <description>HDAT binary data (16KB)</description>
+         <eyeCatch>HDAT</eyeCatch>
+-        <physicalOffset>0x2E07000</physicalOffset>
++        <physicalOffset>0x3701000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>sideless</side>
+         <sha512Version/>
+-- 
+2.16.2.windows.1
+

@@ -1,0 +1,46 @@
+From f0fe3d72bb18a5180b2b9a2d65d0bc5de5b37bfa Mon Sep 17 00:00:00 2001
+From: Jim Yuan <jim.yuan@supermicro.com>
+Date: Wed, 18 Oct 2017 11:38:08 -0700
+Subject: [PATCH 3/5] Fix hdatBmcFamily string is overwritten.
+
+Resolves #119
+
+Change-Id: I5d93ba95bb740628e05c457ef0bdf1eb66ca3695
+Reviewed-on: http://ralgit01.raleigh.ibm.com/gerrit1/48601
+Tested-by: Jenkins Server <pfd-jenkins+hostboot@us.ibm.com>
+Tested-by: Jenkins OP Build CI <op-jenkins+hostboot@us.ibm.com>
+Reviewed-by: NAGENDRA K. GURRAM <nagendra.g@in.ibm.com>
+Tested-by: Jenkins OP HW <op-hw-jenkins+hostboot@us.ibm.com>
+Tested-by: FSP CI Jenkins <fsp-CI-jenkins+hostboot@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ src/usr/hdat/hdatspsubsys.C | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/usr/hdat/hdatspsubsys.C b/src/usr/hdat/hdatspsubsys.C
+index 172bc994e..033dc7e7e 100755
+--- a/src/usr/hdat/hdatspsubsys.C
++++ b/src/usr/hdat/hdatspsubsys.C
+@@ -7,6 +7,7 @@
+ /*                                                                        */
+ /* Contributors Listed Below - COPYRIGHT 2016,2017                        */
+ /* [+] International Business Machines Corp.                              */
++/* [+] Jim Yuan                                                           */
+ /*                                                                        */
+ /*                                                                        */
+ /* Licensed under the Apache License, Version 2.0 (the "License");        */
+@@ -421,9 +422,9 @@ errlHndl_t HdatSpSubsys::hdatFillDataPtrs()
+ 
+            strcpy( iv_impl.hdatBmcFamily , l_bmcManufacturer);
+            strcat( iv_impl.hdatBmcFamily , ",");
+-           strcpy( iv_impl.hdatBmcFamily , l_bmcHwChip);
++           strcat( iv_impl.hdatBmcFamily , l_bmcHwChip);
+            strcat( iv_impl.hdatBmcFamily , ",");
+-           strcpy( iv_impl.hdatBmcFamily , l_bmcSw);
++           strcat( iv_impl.hdatBmcFamily , l_bmcSw);
+         }
+         else
+         {
+-- 
+2.16.2.windows.1
+

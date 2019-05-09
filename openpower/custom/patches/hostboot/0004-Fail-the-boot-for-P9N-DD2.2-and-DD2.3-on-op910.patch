@@ -1,0 +1,102 @@
+From 9caf1bde1674b03eaead111aac7328eac4c08466 Mon Sep 17 00:00:00 2001
+From: Corey Swenson <cswenson@us.ibm.com>
+Date: Tue, 30 Jan 2018 11:20:30 -0600
+Subject: [PATCH 5/5] Fail the boot for P9N DD2.2 and DD2.3 on op910
+
+Change-Id: I371b46fe3ce8e1fcee283ec799276548ed0f450b
+---
+ src/include/arch/pvrformat.H                | 20 +++++++++++++++++++-
+ src/usr/isteps/istep06/host_set_ipl_parms.C | 18 ++++++++++--------
+ 2 files changed, 29 insertions(+), 9 deletions(-)
+
+diff --git a/src/include/arch/pvrformat.H b/src/include/arch/pvrformat.H
+index 2a2616dd4..3e233c50d 100644
+--- a/src/include/arch/pvrformat.H
++++ b/src/include/arch/pvrformat.H
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2017                             */
++/* Contributors Listed Below - COPYRIGHT 2017,2018                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -115,6 +115,8 @@ struct PVR_t
+     {
+         NIMBUS_DD1_MASK = 0x00FF2F0F,
+         IS_NIMBUS_DD1   = 0x004E0100,
++        IS_NIMBUS_DD20   = 0x004E0200,
++        IS_NIMBUS_DD21   = 0x004E0201,
+ 
+         // Field: chipType
+         NIMBUS_CHIP = 0,
+@@ -138,6 +140,22 @@ struct PVR_t
+     inline bool isNimbusDD1() {
+         return ((word & NIMBUS_DD1_MASK) == IS_NIMBUS_DD1);
+     }
++
++    /**
++     * @brief Check if DD2.0
++     * @return true if DD2.0, else false
++     */
++    inline bool isNimbusDD20() {
++        return ((word & NIMBUS_DD1_MASK) == IS_NIMBUS_DD20);
++    }
++
++    /**
++     * @brief Check if DD2.1
++     * @return true if DD2.1, else false
++     */
++    inline bool isNimbusDD21() {
++        return ((word & NIMBUS_DD1_MASK) == IS_NIMBUS_DD21);
++    }
+ };
+ 
+ #endif //_PVRFORMAT_H
+diff --git a/src/usr/isteps/istep06/host_set_ipl_parms.C b/src/usr/isteps/istep06/host_set_ipl_parms.C
+index 5616770c6..f47980e6e 100644
+--- a/src/usr/isteps/istep06/host_set_ipl_parms.C
++++ b/src/usr/isteps/istep06/host_set_ipl_parms.C
+@@ -80,28 +80,30 @@ void* host_set_ipl_parms( void *io_pArgs )
+     Util::writeSemiPersistData(l_semiData);
+ 
+ 
+-    // Add a check to indicate that Nimbus DD1.0 is NOT supported
+-    // and prevent a boot
++    // Add a check to indicate that only Nimbus DD2.0 or DD2.1 are supported
++    // All other levels are not is NOT supported and prevent a boot
+     PVR_t l_pvr( mmio_pvr_read() & 0xFFFFFFFF );
+-    if( l_pvr.isNimbusDD1() )
++    if( !(l_pvr.isNimbusDD20() || l_pvr.isNimbusDD21()) )
+     {
+ #ifdef CONFIG_CONSOLE
+         CONSOLE::displayf(ISTEP_COMP_NAME,
+-                          "P9N (Nimbus) DD1.0 is not supported in this driver");
++                          "P9N (Nimbus) DD1.0, DD2.2, DD2.3 are not supported in this driver");
+         CONSOLE::displayf(ISTEP_COMP_NAME,
+-                          "Please update the system's processor modules");
++                          "Please update the system's processor modules (DD1.0) "
++                          "or use non op910 driver (DD2.2, DD2.3)");
+ #endif
+ 
+ 
+         TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace,
+-                   "DD1.0 is NOT SUPPORTED anymore. "
+-                   "Please upgrade proc modules");
++                   "DD1.0, DD2.2, DD2.3 is NOT SUPPORTED in op910. "
++                   "Please upgrade proc modules (DD1.0) or update to "
++                   "non op910 driver release (DD2.2,DD2.3)");
+         /*@
+          * @errortype
+          * @moduleid     ISTEP::MOD_SET_IPL_PARMS
+          * @reasoncode   ISTEP::RC_P9N_DD1_NOT_SUPPORTED
+          * @userdata1    PVR of master proc
+-         * @devdesc      P9N (Nimbus) DD1.x is not supported
++         * @devdesc      P9N (Nimbus) DD1.x, DD2.2, DD2.3 is not supported
+          *               in this firmware driver.  Please update
+          *               your module or use a different driver
+          * @custdesc     A problem occurred during the IPL
+-- 
+2.16.2.windows.1
+

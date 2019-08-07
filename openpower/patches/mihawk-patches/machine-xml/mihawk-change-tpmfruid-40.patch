@@ -1,0 +1,21 @@
+diff --git a/mihawk.xml b/mihawk.xml
+index 7bdc9f3..9b74366 100644
+--- a/mihawk.xml
++++ b/mihawk.xml
+@@ -10863,14 +10863,14 @@
+ 	<id>/sys-0/node-0/motherboard-0/tpm-connector-2/daughtercard-1</id>
+ 	<property>
+ 	<id>FRU_ID</id>
+-	<value>36</value>
++	<value></value>
+ 	</property>
+ </globalSetting>
+ <globalSetting>
+ 	<id>/sys-0/node-0/motherboard-0/tpm-connector-2/daughtercard-1/tpm-0</id>
+ 	<property>
+ 	<id>FRU_ID</id>
+-	<value>37</value>
++	<value>40</value>
+ 	</property>
+ </globalSetting>
+ <globalSetting>

@@ -17,7 +17,7 @@ index 78bd926c8439..4bd787a6beff 100644
  PATCHLEVEL = 2
  SUBLEVEL = 5
 -EXTRAVERSION =
-+EXTRAVERSION = -openpower2
++EXTRAVERSION = -openpower1
  NAME = Bobtail Squid
  
  # *DOCUMENTATION*

@@ -1,0 +1,83 @@
+From 9f88d985d01854aa4febad0aa069d336232f9940 Mon Sep 17 00:00:00 2001
+From: Oliver O'Halloran <oohall@gmail.com>
+Date: Mon, 4 Nov 2019 18:34:14 +1100
+Subject: [PATCH] platform/p9dsu: Fix p9dsuess slot table by breaking it
+
+In the distant past firmware builds for p9dsuess (aka BostonLA) were
+provided directly by Supermicro from their internal tree. Platform
+support for p9dsu (and the ESS variant) was added to upstream Skiboot
+but it appears that what was upstreamed was not identical to what was
+in the internal trees.
+
+Specificly the slot table entries for UIO Slot2 and the unused "PLX
+switch" port were marked as a built-in device and pluggable slot
+respectively. This arrangement causes one PCI bus to be assigned
+for UIO Slot2 and five to be assigned to the unused port since skiboot
+assigned extra bus numbers to (hot)pluggable slots.
+
+The upstreamed tables swapped the types so UIO Slot2 was marked as a
+pluggable slot and "PLX switch" as a builtin device. This is arguably
+"more corrrect" since UIO Slot2 is in fact a pluggable slot, but as a
+side effect it creates instability in how bus numbers are assigned.
+
+When UIO Slot2 is populated the extra buses are not allocated to the
+slot and as a result the bus numbers of the "PLX switch" port, and the
+built-in network card will change depending on whether UIO Slot2 is
+populated or not.
+
+It's become common for the OS to use bus numbers as a part of
+"persistent network device names" which are tied to physical properties
+of a device rather than the order in which the device is discovered by
+the OS. An unfortunate side effect of this naming scheme is that
+changing the PCI bus number of the slot will also change the network
+device name. If the OS' network setup scripts are tied to this name,
+as they frequently are, the change in bus numbers can result in a
+partial or total loss of networking on the system.
+
+To address this issue, return to the pre-upstream slot table arrangement
+so there is continuity across firmware versions. This bug only affects
+the slots under PLX switch ports the P9DSU ESS variant. The other P9DSU
+variants only have direct-attached PCIe slots which are not affected
+by bus number assignment problems.
+
+Cc: Deb McLemore <debmc@linux.ibm.com>
+Fixes: 87517c8737b9 ("p9dsu: Fix p9dsu slot tables")
+Signed-off-by: Oliver O'Halloran <oohall@gmail.com>
+---
+ platforms/astbmc/p9dsu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/platforms/astbmc/p9dsu.c b/platforms/astbmc/p9dsu.c
+index eeb8fd76284d..f80a5fc4d104 100644
+--- a/platforms/astbmc/p9dsu.c
++++ b/platforms/astbmc/p9dsu.c
+@@ -349,7 +349,7 @@ static const struct slot_table_entry p9dsu2u_phb_table[] = {
+ 
+ static const struct slot_table_entry p9dsu2uess_uio_plx_down[] = {
+ 	{
+-		.etype = st_pluggable_slot,
++		.etype = st_builtin_dev,
+ 		.location = ST_LOC_DEVFN(0x1,0),
+ 		.name = "UIO Slot2",
+ 		.power_limit = 75,
+@@ -361,7 +361,7 @@ static const struct slot_table_entry p9dsu2uess_uio_plx_down[] = {
+ 		.power_limit = 75,
+ 	},
+ 	{
+-		.etype = st_pluggable_slot,
++		.etype = st_builtin_dev,
+ 		.location = ST_LOC_DEVFN(0x9,0),
+ 		.name = "Onboard LAN",
+ 	},
+@@ -381,7 +381,7 @@ static const struct slot_table_entry p9dsu2uess_uio_plx_up[] = {
+ 
+ static const struct slot_table_entry p9dsu2uess_wio_plx_down[] = {
+ 	{
+-		.etype = st_pluggable_slot,
++		.etype = st_builtin_dev,
+ 		.location = ST_LOC_DEVFN(0x1,0),
+ 		.name = "WIO Slot1",
+ 		.power_limit = 75,
+-- 
+2.21.0
+

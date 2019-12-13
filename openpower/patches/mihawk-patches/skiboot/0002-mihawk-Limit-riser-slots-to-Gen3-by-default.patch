@@ -1,0 +1,144 @@
+From 08b212d56c9ebd52fbbbbb7d38fd09f253183347 Mon Sep 17 00:00:00 2001
+From: Oliver O'Halloran <oohall@gmail.com>
+Date: Fri, 13 Dec 2019 12:08:29 +1100
+Subject: [PATCH 2/3] mihawk: Limit riser slots to Gen3 by default
+
+Some of mihawk's PCIe risers have SI issues which can be worked around
+by limiting them to Gen3 speeds
+
+Signed-off-by: Oliver O'Halloran <oohall@gmail.com>
+---
+ hw/phb4.c                 | 21 ++++++++++++++++++++
+ include/phb4-regs.h       |  4 ++++
+ include/phb4.h            |  2 ++
+ platforms/astbmc/mihawk.c | 42 ++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 68 insertions(+), 1 deletion(-)
+
+diff --git a/hw/phb4.c b/hw/phb4.c
+index b5243509..a0c9ac3a 100644
+--- a/hw/phb4.c
++++ b/hw/phb4.c
+@@ -2901,6 +2901,27 @@ static unsigned int phb4_get_max_link_speed(struct phb4 *p)
+ 	return max_link_speed;
+ }
+ 
++/*
++ * Has the same effect as the ibm,max-link-speed property.
++ * i.e. sets the default link speed, while allowing NVRAM
++ * overrides, etc to still take effect.
++ */
++void phb4_set_dt_max_link_speed(struct phb4 *p, int new_max)
++{
++	uint64_t scr;
++	int max;
++
++	/* update the stored setting */
++	p->dt_max_link_speed = new_max;
++
++	/* take into account nvram settings, etc */
++	max = phb4_get_max_link_speed(p);
++
++	scr = phb4_read_reg(p, PHB_PCIE_SCR);
++	scr = SETFIELD(PHB_PCIE_SCR_MAXLINKSPEED, scr, max);
++	phb4_write_reg(p, PHB_PCIE_SCR, scr);
++}
++
+ static void phb4_assert_perst(struct pci_slot *slot, bool assert)
+ {
+ 	struct phb4 *p = phb_to_phb4(slot->phb);
+diff --git a/include/phb4-regs.h b/include/phb4-regs.h
+index d2fc357b..875796e9 100644
+--- a/include/phb4-regs.h
++++ b/include/phb4-regs.h
+@@ -250,6 +250,10 @@
+ #define PHB_PCIE_HOTPLUG_STATUS		0x1A20
+ #define	  PHB_PCIE_HPSTAT_PRESENCE	PPC_BIT(10)
+ 
++#define PHB_PCIE_LMR		0x1A30
++#define   PHB_PCIE_LMR_CHANGE_WIDTH	PPC_BIT(0)
++#define   PHB_PCIE_LMR_RETRAIN_LINK	PPC_BIT(1)
++
+ #define PHB_PCIE_DLP_TRAIN_CTL		0x1A40
+ #define	  PHB_PCIE_DLP_LINK_WIDTH	PPC_BITMASK(30,35)
+ #define	  PHB_PCIE_DLP_LINK_SPEED	PPC_BITMASK(36,39)
+diff --git a/include/phb4.h b/include/phb4.h
+index 1c68ec2e..036b8a81 100644
+--- a/include/phb4.h
++++ b/include/phb4.h
+@@ -252,4 +252,6 @@ static inline int phb4_get_opal_id(unsigned int chip_id, unsigned int index)
+ 	return chip_id * PHB4_PER_CHIP + index;
+ }
+ 
++void phb4_set_dt_max_link_speed(struct phb4 *p, int new_max);
++
+ #endif /* __PHB4_H */
+diff --git a/platforms/astbmc/mihawk.c b/platforms/astbmc/mihawk.c
+index feae205f..290b34d3 100644
+--- a/platforms/astbmc/mihawk.c
++++ b/platforms/astbmc/mihawk.c
+@@ -14,6 +14,8 @@
+ #include <npu2.h>
+ #include <pci.h>
+ #include <pci-cfg.h>
++#include <phb4-regs.h>
++#include <phb4.h>
+ 
+ #include "astbmc.h"
+ 
+@@ -248,6 +250,43 @@ static bool mihawk_probe(void)
+ 	return true;
+ }
+ 
++
++/*
++ * Limit phb3 / (pec2) to gen3 speeds until we know the card (or riser)
++ * can support gen4 speeds.
++ */
++static void mihawk_setup_phb(struct phb *phb, unsigned int __unused index)
++{
++	struct phb4 *p = phb_to_phb4(phb);
++
++	if (p->pec == 2)
++		phb4_set_dt_max_link_speed(p, 3);
++}
++
++static void mihawk_pci_probe_complete(void)
++{
++	struct phb *phb;
++
++	for_each_phb(phb) {
++		struct phb4 *p = phb_to_phb4(phb);
++		struct pci_device *pd;
++
++		if (phb->phb_type != phb_type_pcie_v4 || p->pec != 2)
++			continue;
++
++		pd = pci_find_dev(phb, 0x0100);
++		if (!pd)
++			continue;
++		if (pd->vdid != 0x405211f8)
++			continue;
++
++		PCIERR(&p->phb, 0, "restoring to gen4\n");
++		phb4_set_dt_max_link_speed(p, 4);
++	}
++
++	check_all_slot_table();
++}
++
+ DECLARE_PLATFORM(mihawk) = {
+ 	.name			= "Mihawk",
+ 	.probe			= mihawk_probe,
+@@ -256,7 +295,8 @@ DECLARE_PLATFORM(mihawk) = {
+ 	.resource_loaded	= flash_resource_loaded,
+ 	.bmc			= &bmc_plat_ast2500_openbmc,
+ 	.pci_get_slot_info	= mihawk_get_slot_info,
+-	.pci_probe_complete	= check_all_slot_table,
++	.pci_probe_complete	= mihawk_pci_probe_complete,
++	.pci_setup_phb 		= mihawk_setup_phb,
+ 	.cec_power_down         = astbmc_ipmi_power_down,
+ 	.cec_reboot             = astbmc_ipmi_reboot,
+ 	.elog_commit		= ipmi_elog_commit,
+-- 
+2.17.1
+

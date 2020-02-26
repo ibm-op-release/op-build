@@ -1,0 +1,60 @@
+From aa8c95455a5ab0a94fbcacce6760c163c4ab4be2 Mon Sep 17 00:00:00 2001
+From: Alexey Kardashevskiy <aik@ozlabs.ru>
+Date: Fri, 22 Nov 2019 11:04:22 +1100
+Subject: [PATCH] npu2: Clear fence on all bricks
+
+[ Upstream commit 9be9a77a8352aee0bb74ac0d79f55e1238f76285 ]
+
+A bug in the NVidia driver can cause an UR HMI which fences bricks
+(links). At the moment we clear fence status only for bricks of a specific
+devices, however this does not appear to be enough and we need to clear
+fences for all bricks. This is ok as we do not allow using GPUs
+individually anyway.
+
+Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+Acked-by: Reza Arbab <arbab@linux.ibm.com>
+Signed-off-by: Oliver O'Halloran <oohall@gmail.com>
+Signed-off-by: Vasant Hegde <hegdevasant@linux.vnet.ibm.com>
+---
+ hw/npu2-hw-procedures.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/hw/npu2-hw-procedures.c b/hw/npu2-hw-procedures.c
+index 24447a46..4e245d2c 100644
+--- a/hw/npu2-hw-procedures.c
++++ b/hw/npu2-hw-procedures.c
+@@ -258,8 +258,8 @@ static bool poll_fence_status(struct npu2_dev *ndev, uint64_t val)
+ /* Procedure 1.2.1 - Reset NPU/NDL */
+ uint32_t reset_ntl(struct npu2_dev *ndev)
+ {
+-	uint64_t val;
+-	int lane;
++	uint64_t val, check;
++	int lane, i;
+ 
+ 	set_iovalid(ndev, true);
+ 
+@@ -277,10 +277,17 @@ uint32_t reset_ntl(struct npu2_dev *ndev)
+ 
+ 	/* Clear fence state for the brick */
+ 	val = npu2_read(ndev->npu, NPU2_MISC_FENCE_STATE);
+-	if (val & PPC_BIT(ndev->brick_index)) {
+-		NPU2DEVINF(ndev, "Clearing brick fence\n");
+-		val = PPC_BIT(ndev->brick_index);
++	if (val) {
++		NPU2DEVINF(ndev, "Clearing all bricks fence\n");
+ 		npu2_write(ndev->npu, NPU2_MISC_FENCE_STATE, val);
++		for (i = 0, check = 0; i < 4096; i++) {
++			check = npu2_read(ndev->npu, NPU2_NTL_CQ_FENCE_STATUS(ndev));
++			if (!check)
++				break;
++		}
++		if (check)
++			NPU2DEVERR(ndev, "Clearing NPU2_MISC_FENCE_STATE=0x%llx timeout, current=0x%llx\n",
++					val, check);
+ 	}
+ 
+ 	/* Write PRI */
+-- 
+2.17.1
+

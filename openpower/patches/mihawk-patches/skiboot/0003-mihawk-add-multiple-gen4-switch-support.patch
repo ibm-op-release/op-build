@@ -1,0 +1,53 @@
+From d70c4eb162b4a6aefdf3aee84a50c9edd58fe3d7 Mon Sep 17 00:00:00 2001
+From: Joy Chu <joy_chu@wistron.com>
+Date: Fri, 13 Dec 2019 18:24:41 +0800
+Subject: [PATCH 3/3] mihawk: add multiple gen4 switch support
+
+Add Microsemi Gen4 switch 405211f8 and 140011f8 support and add some trace for it.
+
+Signed-off-by: Joy Chu <joy_chu@wistron.com>
+---
+ platforms/astbmc/mihawk.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/platforms/astbmc/mihawk.c b/platforms/astbmc/mihawk.c
+index 290b34d3..83ffdf03 100644
+--- a/platforms/astbmc/mihawk.c
++++ b/platforms/astbmc/mihawk.c
+@@ -259,8 +259,11 @@ static void mihawk_setup_phb(struct phb *phb, unsigned int __unused index)
+ {
+ 	struct phb4 *p = phb_to_phb4(phb);
+ 
+-	if (p->pec == 2)
++	if (p->pec == 2) {
+ 		phb4_set_dt_max_link_speed(p, 3);
++		prlog(PR_DEBUG, "Mihawk: Force the PEC2 Speed to Gen3 ONLY    "
++                                "(chip_id=%d, pec=%d)\n", p->chip_id, p->pec);
++	}
+ }
+ 
+ static void mihawk_pci_probe_complete(void)
+@@ -277,11 +280,19 @@ static void mihawk_pci_probe_complete(void)
+ 		pd = pci_find_dev(phb, 0x0100);
+ 		if (!pd)
+ 			continue;
+-		if (pd->vdid != 0x405211f8)
++
++		/* If we find a Microsemi Gen4 Switch vdid=0x405211f8 or
++	           vdid=0x140011f8, which means it's the riser with Gen4 switch
++		   installed and the max speed should change from Gen3 to Gen4.
++		 */
++		if ((pd->vdid != 0x405211f8) && (pd->vdid != 0x140011f8))
+ 			continue;
+ 
+ 		PCIERR(&p->phb, 0, "restoring to gen4\n");
+ 		phb4_set_dt_max_link_speed(p, 4);
++		prlog(PR_DEBUG, "Mihawk: Detect Riser-F and Restore to Gen4   "
++				"(chip_id=%d, pec=%d, device=%08x)\n",
++				p->chip_id, p->pec, pd->vdid);
+ 	}
+ 
+ 	check_all_slot_table();
+-- 
+2.17.1
+

@@ -3,7 +3,6 @@ config BR2_PACKAGE_SBE
         default y if (BR2_OPENPOWER_PLATFORM && BR2_OPENPOWER_POWER9)
         select BR2_CPP
         depends on BR2_PACKAGE_HCODE
-        depends on BR2_PACKAGE_HAS_PPE42_TOOLCHAIN
         help
             Project to build the sbe firmware codebase
 
@@ -27,7 +26,7 @@ config BR2_SBE_CUSTOM_VERSION_VALUE
 
 config BR2_SBE_VERSION
 	string
-	default "ea0389a5953014d3027bfb95a937fc2bbbcb7f79" if BR2_SBE_LATEST_VERSION
+	default "47abe2a55e6337cebececdb8b57c1d9c238e6d18" if BR2_SBE_LATEST_VERSION
 	default BR2_SBE_CUSTOM_VERSION_VALUE \
 		if BR2_SBE_CUSTOM_VERSION
 

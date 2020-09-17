@@ -5,7 +5,7 @@
 ################################################################################
 
 OCC_VERSION = $(call qstrip,$(BR2_OCC_VERSION))
-OCC_SITE = $(call github,open-power,occ,$(OCC_VERSION))
+OCC_SITE = $(call github,ibm-op-release,occ,$(OCC_VERSION))
 
 OCC_LICENSE = Apache-2.0
 
@@ -18,7 +18,7 @@ OCC_STAGING_DIR = $(STAGING_DIR)/occ
 
 OCC_IMAGE_BIN_PATH = obj/image.bin
 
-OCC_DEPENDENCIES = host-binutils host-ppe42-toolchain
+OCC_DEPENDENCIES = host-binutils host-ppe42-gcc
 ifeq ($(BR2_OCC_GPU_BIN_BUILD),y)
 	OCC_DEPENDENCIES += hostboot-binaries
 endif

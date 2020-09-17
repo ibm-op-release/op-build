@@ -5,7 +5,7 @@
 ################################################################################
 
 HOSTBOOT_VERSION = $(call qstrip,$(BR2_HOSTBOOT_VERSION))
-HOSTBOOT_SITE ?= $(call github,open-power,hostboot,$(HOSTBOOT_VERSION))
+HOSTBOOT_SITE ?= $(call github,ibm-op-release,hostboot,$(HOSTBOOT_VERSION))
 
 HOSTBOOT_LICENSE = Apache-2.0
 HOSTBOOT_LICENSE_FILES = LICENSE

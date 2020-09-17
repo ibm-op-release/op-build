@@ -2,6 +2,7 @@ config BR2_PACKAGE_HCODE
         bool "hcode"
         default y if (BR2_OPENPOWER_PLATFORM && BR2_OPENPOWER_POWER9)
         select BR2_CPP
+        select BR2_PACKAGE_HOSTBOOT_BINARIES
         help
             Project to build the hcode firmware codebase
 

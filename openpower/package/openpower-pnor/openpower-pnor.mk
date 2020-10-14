@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OPENPOWER_PNOR_VERSION ?= 1c47d2389691a9c343659c6a2ed794084be550ff
+OPENPOWER_PNOR_VERSION ?= f43230139cbcc84ab80ad41bcc157031890f1d3c
 OPENPOWER_PNOR_SITE ?= $(call github,ibm-op-release,pnor,$(OPENPOWER_PNOR_VERSION))
 
 OPENPOWER_PNOR_LICENSE = Apache-2.0
@@ -44,6 +44,10 @@ endif
 
 ifneq ($(BR2_OPENPOWER_SECUREBOOT_SIGN_MODE),"")
 SIGN_MODE_ARG=-sign_mode $(BR2_OPENPOWER_SECUREBOOT_SIGN_MODE)
+endif
+
+ifneq ($(BR2_OPENPOWER_SIGNED_SECURITY_VERSION),"")
+SECURITY_VERSION=-security_version $(BR2_OPENPOWER_SIGNED_SECURITY_VERSION)
 endif
 
 ifeq ($(BR2_OPENPOWER_POWER9),y)
@@ -134,7 +138,7 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 	    -ocmbfw_original_filename $(BINARIES_DIR)/$(BR2_OCMBFW_FILENAME) \
 	    -ocmbfw_binary_filename $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_OCMBFW_PROCESSED_FILENAME) \
             -pnor_layout $(@D)/"$(OPENPOWER_RELEASE)"Layouts/$(BR2_OPENPOWER_PNOR_XML_LAYOUT_FILENAME) \
-            $(XZ_ARG) $(KEY_TRANSITION_ARG) $(SIGN_MODE_ARG) \
+            $(XZ_ARG) $(KEY_TRANSITION_ARG) $(SIGN_MODE_ARG) $(SECURITY_VERSION)\
 
         mkdir -p $(STAGING_DIR)/pnor/
         $(TARGET_MAKE_ENV) $(@D)/create_pnor_image.pl \

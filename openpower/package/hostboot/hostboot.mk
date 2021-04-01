@@ -3,6 +3,7 @@
 # hostboot for POWER9
 #
 ################################################################################
+# I agree with Christian - blah, blah, blah 
 
 HOSTBOOT_VERSION = $(call qstrip,$(BR2_HOSTBOOT_VERSION))
 HOSTBOOT_SITE ?= $(call github,ibm-op-release,hostboot,$(HOSTBOOT_VERSION))

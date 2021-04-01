@@ -4,6 +4,8 @@
 #
 ################################################################################
 
+## BLAH BLAH CG CGC TEST
+
 HOSTBOOT_VERSION = $(call qstrip,$(BR2_HOSTBOOT_VERSION))
 HOSTBOOT_SITE ?= $(call github,ibm-op-release,hostboot,$(HOSTBOOT_VERSION))
 

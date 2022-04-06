@@ -1,0 +1,107 @@
+From de4846cee156288875e6906f23959854ad357911 Mon Sep 17 00:00:00 2001
+From: Reza Arbab <arbab@linux.ibm.com>
+Date: Tue, 22 Mar 2022 14:11:09 -0500
+Subject: [PATCH 2/2] discover: Fix use-after-free error in DHCP handling
+
+During a DHCP event, the event struct allocated in
+user_event_handle_message() is referenced by two pointers,
+
+    user_event_handle_message::event
+    device_handler_dhcp::ctx->event
+
+but only belongs to the latter's talloc context, leading to a
+use-after-free:
+
+    [18:59:13] talloc_chunk_from_ptr: Failed: Bad talloc magic value - double free, for name: struct event
+
+Function call tree:
+
+    user_event_handle_message(uev, buf, len);
+        event = talloc(uev, struct event);    <---- alloc
+        ...
+        result = user_event_dhcp(uev, event);
+            device_handler_dhcp(handler, dev, event);
+                ctx = device_handler_discover_context_create(handler, dev);
+                ...
+                talloc_steal(ctx, event);
+                ctx->event = event;
+                ...
+                iterate_parsers(ctx);
+                    pxe_parse(ctx);    <---- returns early; no ref taken on ctx
+                ...
+                talloc_unlink(handler, ctx);
+                    talloc_free(ctx);
+                        talloc_free_children(ctx);
+                            talloc_free(event);    <---- free
+        ...
+        talloc_parent(event)    <---- use after free
+            talloc_parent_chunk(event)
+                talloc_chunk_from_ptr(event)
+                    pb_log_fn("Failed: Bad talloc magic value ...");
+                    abort();
+
+To fix this, change the talloc_steal() above to talloc_reference() so
+that the pointers remain valid until the struct has been freed from both
+contexts. It also means the explicit call to talloc_free(event) done
+later should no longer be conditional.
+
+The key to manifesting this bug is that pxe_parse() returns error early,
+before it would normally take a reference preventing ctx (and thus
+event) from being freed. So in practice, a misconfigured DHCP server
+triggers the bug:
+
+    [18:59:13] trying parsers for enP1p2s3
+    [18:59:13] pb_url_parse: parse path failed '172.17.103.20.':''
+    [18:59:13] talloc_chunk_from_ptr: Failed: Bad talloc magic value - double free, for name: struct event
+
+Minimal dhcpd.conf for recreation:
+
+    option pxeconffile code 209 = text;
+    subnet 172.17.0.0 netmask 255.255.0.0 {
+        range 172.17.0.100 172.17.0.254;
+        option pxeconffile "http://172.17.103.20.':' . 80/tftpboot/pxelinux.cfg/p/172.17.0.0_16";
+    }
+
+Something else to note here is that pb-discover will only produce the
+log message and abort() when compiled with -O0. With -Os, it will
+silently segfault instead.
+
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
+(cherry picked from commit 641b770667fe551f342bd046f2d57a1905edfa49)
+---
+ discover/device-handler.c | 2 +-
+ discover/user-event.c     | 5 +----
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/discover/device-handler.c b/discover/device-handler.c
+index d85f1afdd22d..ea23aef964a4 100644
+--- a/discover/device-handler.c
++++ b/discover/device-handler.c
+@@ -1552,7 +1552,7 @@ int device_handler_dhcp(struct device_handler *handler,
+ 
+ 	/* create our context */
+ 	ctx = device_handler_discover_context_create(handler, dev);
+-	talloc_steal(ctx, event);
++	talloc_reference(ctx, event);
+ 	ctx->event = event;
+ 
+ 	device_handler_start_requery_timeout(handler, dev,
+diff --git a/discover/user-event.c b/discover/user-event.c
+index 8b7a5ffc823e..c1966aff8a66 100644
+--- a/discover/user-event.c
++++ b/discover/user-event.c
+@@ -678,10 +678,7 @@ static void user_event_handle_message(struct user_event *uev, char *buf,
+ 	if (result)
+ 		pb_log_fn("failed to handle action %d\n", event->action);
+ 
+-	/* user_event_dhcp() will steal the event context, but all others still
+-	 * need to free */
+-	if (talloc_parent(event) == uev)
+-		talloc_free(event);
++	talloc_free(event);
+ 	return;
+ }
+ 
+-- 
+2.27.0
+

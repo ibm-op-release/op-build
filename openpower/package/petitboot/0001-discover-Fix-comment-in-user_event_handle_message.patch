@@ -1,0 +1,47 @@
+From 2ade90ffbdcf638421be7c0cea37bd64cb345f6e Mon Sep 17 00:00:00 2001
+From: Reza Arbab <arbab@linux.ibm.com>
+Date: Wed, 23 Mar 2022 09:32:36 -0500
+Subject: [PATCH 1/2] discover: Fix comment in user_event_handle_message()
+
+The comment says that user_event_url() will steal the event context, but
+that's not true. It actually allocates another event struct:
+
+    user_event_url(uev, event)
+        device_handler_process_url(handler, url, mac, ip)
+            event = talloc_zero(handler, struct event);
+            ...
+            talloc_steal(ctx, event);
+
+The variable names are the same, which probably led to the confusion,
+but the "event" being stolen above is not the one from user_event_url().
+
+This causes me to wonder whether device_handler_process_url() really
+even needs to call talloc_steal() at all. There could be some subtlety
+of the asynchronous job setup that I'm missing.
+
+For now, just correct the comment.
+
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
+(cherry picked from commit a6f05c3a94887404b83fb00ce0d7d9acab7810e7)
+---
+ discover/user-event.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/discover/user-event.c b/discover/user-event.c
+index cc03ffd3bfb0..8b7a5ffc823e 100644
+--- a/discover/user-event.c
++++ b/discover/user-event.c
+@@ -678,8 +678,8 @@ static void user_event_handle_message(struct user_event *uev, char *buf,
+ 	if (result)
+ 		pb_log_fn("failed to handle action %d\n", event->action);
+ 
+-	/* user_event_url() and user_event_dhcp() will steal the event context,
+-	 * but all others still need to free */
++	/* user_event_dhcp() will steal the event context, but all others still
++	 * need to free */
+ 	if (talloc_parent(event) == uev)
+ 		talloc_free(event);
+ 	return;
+-- 
+2.27.0
+

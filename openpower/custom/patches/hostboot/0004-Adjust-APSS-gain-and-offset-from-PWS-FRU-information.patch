@@ -1,33 +1,21 @@
-From 0149b1520364e4926323926863391c27eaf5ea4b Mon Sep 17 00:00:00 2001
+From 1949680cf9099c190beca1e7f1f45b874586f0ae Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Wed, 16 May 2018 10:51:06 -0700
-Subject: [PATCH 4/5] Adjust APSS gain and offset from PWS FRU information.
+Subject: [PATCH] Adjust APSS gain and offset from PWS FRU information.
 
+Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+[arbab: Regenerate patch against newer hostboot]
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
 ---
- src/include/usr/ipmi/ipmiif.H                      |   3 +
- src/usr/htmgt/htmgt_cfgdata.C                      |   2 +
- src/usr/isteps/istep10/call_proc_pcie_scominit.C   |   1 +
- src/usr/isteps/istep10/host_proc_pcie_scominit.C   | 212 +++++++++++++++++++++
- src/usr/isteps/istep10/host_proc_pcie_scominit.H   |   2 +
- .../common/xmltohb/attribute_types_openpower.xml   |   2 +
- 6 files changed, 222 insertions(+)
+ src/usr/htmgt/htmgt_cfgdata.C                 |   2 +
+ .../isteps/istep10/call_proc_pcie_scominit.C  |   1 +
+ .../isteps/istep10/host_proc_pcie_scominit.C  | 212 ++++++++++++++++++
+ .../isteps/istep10/host_proc_pcie_scominit.H  |   2 +
+ .../xmltohb/attribute_types_openpower.xml     |   2 +
+ 5 files changed, 219 insertions(+)
 
-diff --git a/src/include/usr/ipmi/ipmiif.H b/src/include/usr/ipmi/ipmiif.H
-index c0cb8741b..ea9c8c9f6 100644
---- a/src/include/usr/ipmi/ipmiif.H
-+++ b/src/include/usr/ipmi/ipmiif.H
-@@ -261,6 +261,9 @@ namespace IPMI
-     inline const command_t set_sel_time(void)
-     { return std::make_pair(NETFUN_STORAGE, 0x49); }
- 
-+	inline const command_t read_fru_data(void)
-+	{ return std::make_pair(NETFUN_STORAGE, 0x11); }
-+
-     inline const command_t write_fru_data(void)
-     { return std::make_pair(NETFUN_STORAGE, 0x12); }
- 
 diff --git a/src/usr/htmgt/htmgt_cfgdata.C b/src/usr/htmgt/htmgt_cfgdata.C
-index ef9915160..a4a1c8618 100644
+index ef9915160aac..a4a1c8618fb9 100644
 --- a/src/usr/htmgt/htmgt_cfgdata.C
 +++ b/src/usr/htmgt/htmgt_cfgdata.C
 @@ -1387,6 +1387,8 @@ void getApssMessageData(uint8_t* o_data,
@@ -40,10 +28,10 @@ index ef9915160..a4a1c8618 100644
      CPPASSERT(sizeof(function) == sizeof(gain));
      CPPASSERT(sizeof(function) == sizeof(offset));
 diff --git a/src/usr/isteps/istep10/call_proc_pcie_scominit.C b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
-index 90a1b595e..060403cfc 100644
+index 0a745f2b0543..9a776d56acb5 100644
 --- a/src/usr/isteps/istep10/call_proc_pcie_scominit.C
 +++ b/src/usr/isteps/istep10/call_proc_pcie_scominit.C
-@@ -79,6 +79,7 @@ void*    call_proc_pcie_scominit( void    *io_pArgs )
+@@ -78,6 +78,7 @@ void*    call_proc_pcie_scominit( void    *io_pArgs )
      IStepError          l_StepError;
  
  	setSystemType();
@@ -52,10 +40,10 @@ index 90a1b595e..060403cfc 100644
      //
      //  get a list of all the procs in the system
 diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.C b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-index c706b0e03..cc62189f0 100644
+index 082a36585aa1..f1e9d132e81a 100644
 --- a/src/usr/isteps/istep10/host_proc_pcie_scominit.C
 +++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.C
-@@ -327,6 +327,218 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
+@@ -635,6 +635,218 @@ void setup_pcie_iovalid_enable(const TARGETING::Target * i_procTarget)
  }
  
  
@@ -275,7 +263,7 @@ index c706b0e03..cc62189f0 100644
  {
  
 diff --git a/src/usr/isteps/istep10/host_proc_pcie_scominit.H b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
-index 8078bae39..6a2703695 100644
+index a5e3b6ce49fe..d116b527d203 100644
 --- a/src/usr/isteps/istep10/host_proc_pcie_scominit.H
 +++ b/src/usr/isteps/istep10/host_proc_pcie_scominit.H
 @@ -34,6 +34,8 @@ namespace   ISTEP_10
@@ -288,25 +276,25 @@ index 8078bae39..6a2703695 100644
  /**
   *  @brief Computes PCIE configuration attributes based on MRW values
 diff --git a/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml b/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
-index ba995a93a..5bf56239c 100644
+index bd5c191543c5..49178ef4f9eb 100644
 --- a/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
 +++ b/src/usr/targeting/common/xmltohb/attribute_types_openpower.xml
-@@ -74,6 +74,7 @@
+@@ -50,6 +50,7 @@
      </simpleType>
      <persistency>non-volatile</persistency>
      <readable/>
 +    <writeable/>
- </attribute>
+   </attribute>
  
- <attribute>
-@@ -85,6 +86,7 @@
+   <attribute>
+@@ -72,6 +73,7 @@
      </simpleType>
      <persistency>non-volatile</persistency>
      <readable/>
 +    <writeable/>
- </attribute>
+   </attribute>
  
- <attribute>
+   <attribute>
 -- 
-2.16.2.windows.1
+2.31.1
 

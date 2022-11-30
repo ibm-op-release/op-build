@@ -1,19 +1,29 @@
-From f0e5d3ec3ffd605056464ad58f11d9c3c5c114d7 Mon Sep 17 00:00:00 2001
+From 0487dbe9bac62fe159b8725d7f439aaa379cde62 Mon Sep 17 00:00:00 2001
 From: Jim Yuan <jim.yuan@supermicro.com>
 Date: Wed, 19 Apr 2017 18:01:46 -0700
 Subject: [PATCH] add VGA handshake with BMC
 
 Signed-off-by: Jim Yuan <jim.yuan@supermicro.com>
+[arbab: Regenerate patch against kernel 5.10]
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
 ---
- ast_main.c | 38 ++++++++++++++++++++++++++++++++++++++
+ drivers/gpu/drm/ast/ast_main.c | 38 ++++++++++++++++++++++++++++++++++
  1 file changed, 38 insertions(+)
 
 diff --git a/drivers/gpu/drm/ast/ast_main.c b/drivers/gpu/drm/ast/ast_main.c
-index eefc512..78cc1f4 100644
+index 0d163511564e..ca303ec557fd 100644
 --- a/drivers/gpu/drm/ast/ast_main.c
 +++ b/drivers/gpu/drm/ast/ast_main.c
-@@ -478,6 +478,40 @@ static u32 ast_get_vram_info(struct drm_device *dev)
- 	return vram_size;
+@@ -26,6 +26,7 @@
+  * Authors: Dave Airlie <airlied@redhat.com>
+  */
+ 
++#include <linux/delay.h>
+ #include <linux/pci.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+@@ -392,6 +393,39 @@ static void ast_device_release(void *data)
+ 	ast_set_index_reg(ast, AST_IO_CRTC_PORT, 0xa1, 0x04);
  }
  
 +static int ast_bmc_handshake(struct ast_private *ast) {
@@ -49,21 +59,20 @@ index eefc512..78cc1f4 100644
 +	return -EIO;
 +}
 +
-+
- int ast_driver_load(struct drm_device *dev, unsigned long flags)
- {
- 	struct ast_private *ast;
-@@ -517,6 +551,10 @@ int ast_driver_load(struct drm_device *dev, unsigned long flags)
- 	}
+ struct ast_private *ast_device_create(struct drm_driver *drv,
+ 				      struct pci_dev *pdev,
+ 				      unsigned long flags)
+@@ -432,6 +466,10 @@ struct ast_private *ast_device_create(struct drm_driver *drv,
  
  	ast_detect_chip(dev, &need_post);
-+	
+ 
 +	ret = ast_bmc_handshake(ast);
 +	if (ret)
-+		goto out_free;
- 
- 	if (need_post)
- 		ast_post_gpu(dev);
++		return ERR_PTR(ret);
++
+ 	ret = ast_get_dram_info(dev);
+ 	if (ret)
+ 		return ERR_PTR(ret);
 -- 
-2.9.2.windows.1
+2.31.1
 

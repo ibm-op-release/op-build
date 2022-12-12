@@ -9,10 +9,7 @@ if BR2_PACKAGE_HOSTBOOT
 
 choice
 	prompt "Hostboot version"
-	default BR2_HOSTBOOT_OP920_VERSION
-
-config BR2_HOSTBOOT_OP920_VERSION
-	bool "Use latest Hostboot stable version (OP920)"
+	default BR2_HOSTBOOT_LATEST_VERSION
 
 config BR2_HOSTBOOT_LATEST_VERSION
 	bool "Use latest Hostboot master"
@@ -28,8 +25,7 @@ config BR2_HOSTBOOT_CUSTOM_VERSION_VALUE
 
 config BR2_HOSTBOOT_VERSION
 	string
-	default "43c4502d3b0b87020665a65ad2843e0ddc31906" if BR2_HOSTBOOT_LATEST_VERSION
-	default "c00d44a9ad0384ace88eaf766ba99f8e2c612366" if BR2_HOSTBOOT_OP920_VERSION
+	default "46a489ba7864b1d32c4b37a1223a39f33ad12f66" if BR2_HOSTBOOT_LATEST_VERSION
 	default BR2_HOSTBOOT_CUSTOM_VERSION_VALUE \
 		if BR2_HOSTBOOT_CUSTOM_VERSION
 
@@ -39,5 +35,13 @@ config BR2_HOSTBOOT_CONFIG_FILE
         help
             String used to define hw specific make config file
 
-endif
 
+config BR2_HOSTBOOT_USE_ALTERNATE_GCC
+		bool "use Alternate GCC to build hostboot"
+		default n
+		select BR2_PACKAGE_ALTERNATE_GCC
+		help
+		  Select to enable using an alternate version of GCC
+		  to build hostboot.
+
+endif

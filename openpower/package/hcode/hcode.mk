@@ -12,11 +12,14 @@ HCODE_LICENSE = Apache-2.0
 HCODE_INSTALL_IMAGES = YES
 HCODE_INSTALL_TARGET = NO
 
-HCODE_DEPENDENCIES = host-binutils host-ppe42-gcc hostboot-binaries
+HCODE_DEPENDENCIES = host-binutils host-ppe42-toolchain hostboot-binaries
 
 HW_IMAGE_BIN_PATH=output/images/hw_image
 HW_IMAGE_BIN=p9n.hw_image.bin
 HCODE_IMAGE_BIN = p9n.ref_image.bin
+
+HW_AXONE_IMAGE_BIN=p9a.hw_image.bin
+HCODE_AXONE_IMAGE_BIN = p9a.ref_image.bin
 
 CROSS_COMPILER_PATH=$(PPE42_GCC_BIN)
 PPE_TOOL_PATH ?= $(CROSS_COMPILER_PATH)
@@ -33,6 +36,7 @@ HCODE_ENV_VARS= CONFIG_FILE=$(BR2_EXTERNAL_OP_BUILD_PATH)/configs/hcode/$(BR2_HC
 define HCODE_INSTALL_IMAGES_CMDS
 	mkdir -p $(STAGING_DIR)/hcode
 	$(INSTALL) $(@D)/$(HW_IMAGE_BIN_PATH)/$(HW_IMAGE_BIN) $(STAGING_DIR)/hcode/$(HCODE_IMAGE_BIN)
+        $(INSTALL) $(@D)/$(HW_IMAGE_BIN_PATH)/$(HW_AXONE_IMAGE_BIN) $(STAGING_DIR)/hcode/$(HCODE_AXONE_IMAGE_BIN)
 endef
 
 define HCODE_BUILD_CMDS

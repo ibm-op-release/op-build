@@ -1,9 +1,17 @@
 config BR2_PACKAGE_LIBFLASH
 	bool "libflash"
+	depends on BR2_PACKAGE_SKIBOOT
 	help
 	  Build libflash shared library
 
 config BR2_PACKAGE_PFLASH
 	bool "pflash"
+	default y if BR2_PACKAGE_LIBFLASH
 	help
 	  Install pflash utility to target
+
+config BR2_PACKAGE_OPAL_GARD
+	bool "opal-gard"
+	default y if BR2_PACKAGE_LIBFLASH
+	help
+	  Install opal-gard utility to target

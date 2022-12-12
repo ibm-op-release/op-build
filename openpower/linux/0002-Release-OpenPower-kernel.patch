@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joel Stanley <joel@jms.id.au>
-Date: Thu, 8 Nov 2018 19:02:15 +1030
+Date: Thu, 15 Jul 2021 17:21:55 +0930
 Subject: [PATCH 2/2] Release OpenPower kernel
 
 Signed-off-by: Joel Stanley <joel@jms.id.au>
@@ -9,15 +9,15 @@ Signed-off-by: Joel Stanley <joel@jms.id.au>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Makefile b/Makefile
-index 72e27c379eaf..6584f8d53dad 100644
+index 695f8e739a91..f2280292b96e 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -2,7 +2,7 @@
- VERSION = 4
- PATCHLEVEL = 19
- SUBLEVEL = 30
+ VERSION = 5
+ PATCHLEVEL = 10
+ SUBLEVEL = 108
 -EXTRAVERSION =
 +EXTRAVERSION = -openpower1
- NAME = "People's Front"
+ NAME = Dare mighty things
  
  # *DOCUMENTATION*

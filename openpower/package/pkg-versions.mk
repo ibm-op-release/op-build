@@ -190,6 +190,7 @@ echo -n "	buildroot-" >> $$($$(UPPER_CASE_PKG)_VERSION_FILE);
 	| xargs echo \
 	>> $$($$(UPPER_CASE_PKG)_VERSION_FILE); \
 
+
 # Combing subpackage version files into $$($$(UPPER_CASE_PKG)_VERSION_FILE)
 $$(foreach verFile,$$(ALL_SUBPACKAGE_VERSIONS),
 	if [ -f $$(verFile) ]; then cat $$(verFile) \

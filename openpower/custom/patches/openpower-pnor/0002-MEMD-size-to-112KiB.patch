@@ -1,0 +1,76 @@
+From 09946b9455b8b038d44fd626e41aa176f7f1d834 Mon Sep 17 00:00:00 2001
+From: Reza Arbab <arbab@linux.ibm.com>
+Date: Mon, 12 Dec 2022 11:05:13 -0600
+Subject: [PATCH] MEMD size to 112KiB
+
+Adjust for p9dsu-xml commit 734a35ebe5af ("Fix issue 1414.") which
+doubled the content of MEMD.
+
+Without this, the tooling will abort the build:
+
+[...]
+MEMD section size: 57344, bytes used: 110592, bytes unused: -53248
+ERROR: PnorUtils::checkSpaceConstraints: Image provided (/home/arbab/src/open-power/op-build/boston/output/host/powerpc64le-buildroot-linux-gnu/sysroot/openpower_pnor_scratch//memd_extra_data.bin.ecc) has size (110592) which is greater than allocated space (57344) for section=MEMD.  Aborting! at /home/arbab/src/open-power/op-build/boston/output/host/powerpc64le-buildroot-linux-gnu/sysroot/hostboot_build_images/PnorUtils.pm line 462.
+Error running command: /home/arbab/src/open-power/op-build/boston/output/host/powerpc64le-buildroot-linux-gnu/sysroot/hostboot_build_images//buildpnor.pl [...]
+
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
+---
+ p9Layouts/defaultPnorLayout_64.xml | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/p9Layouts/defaultPnorLayout_64.xml b/p9Layouts/defaultPnorLayout_64.xml
+index aec8c1c4d4c1..74bb26e2b85c 100644
+--- a/p9Layouts/defaultPnorLayout_64.xml
++++ b/p9Layouts/defaultPnorLayout_64.xml
+@@ -349,10 +349,10 @@ Layout Description
+         <clearOnEccErr/>
+     </section>
+     <section>
+-        <description>Memory config data (56KiB)</description>
++        <description>Memory config data (112KiB)</description>
+         <eyeCatch>MEMD</eyeCatch>
+         <physicalOffset>0x3E8F000</physicalOffset>
+-        <physicalRegionSize>0xE000</physicalRegionSize>
++        <physicalRegionSize>0x1C000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+         <readOnly/>
+@@ -361,7 +361,7 @@ Layout Description
+     <section>
+         <description>SecureBoot Key Transition Partition (16KiB)</description>
+         <eyeCatch>SBKT</eyeCatch>
+-        <physicalOffset>0x3E9D000</physicalOffset>
++        <physicalOffset>0x3EAB000</physicalOffset>
+         <physicalRegionSize>0x4000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+@@ -371,7 +371,7 @@ Layout Description
+     <section>
+         <description>HDAT binary data (32KiB)</description>
+         <eyeCatch>HDAT</eyeCatch>
+-        <physicalOffset>0x3EA1000</physicalOffset>
++        <physicalOffset>0x3EAF000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>sideless</side>
+         <sha512Version/>
+@@ -381,7 +381,7 @@ Layout Description
+     <section>
+         <description>Ultravisor binary image (1MiB)</description>
+         <eyeCatch>UVISOR</eyeCatch>
+-        <physicalOffset>0x3EA9000</physicalOffset>
++        <physicalOffset>0x3EB7000</physicalOffset>
+         <physicalRegionSize>0x100000</physicalRegionSize>
+         <side>sideless</side>
+         <sha512Version/>
+@@ -390,7 +390,7 @@ Layout Description
+     <section>
+         <description>Hostboot Runtime Proxy (32KiB)</description>
+         <eyeCatch>HBRT_PROXY</eyeCatch>
+-        <physicalOffset>0x3FA9000</physicalOffset>
++        <physicalOffset>0x3FB7000</physicalOffset>
+         <physicalRegionSize>0x8000</physicalRegionSize>
+         <side>A</side>
+         <sha512Version/>
+-- 
+2.31.1
+

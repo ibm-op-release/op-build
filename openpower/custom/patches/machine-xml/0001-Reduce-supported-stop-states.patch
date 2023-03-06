@@ -1,0 +1,28 @@
+From 522ebe81ae3d9ff55a8cfd3b94807b0bf4351f00 Mon Sep 17 00:00:00 2001
+From: Reza Arbab <arbab@linux.ibm.com>
+Date: Wed, 1 Mar 2023 16:51:29 -0600
+Subject: [PATCH] Reduce supported stop states
+
+Turn off stop 4 and 5 to mitigate test issues.
+
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
+---
+ p9dsu.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/p9dsu.xml b/p9dsu.xml
+index b1678497a027..9bc2174993fb 100644
+--- a/p9dsu.xml
++++ b/p9dsu.xml
+@@ -11438,7 +11438,7 @@
+ 	</attribute>
+ 	<attribute>
+ 		<id>SUPPORTED_STOP_STATES</id>
+-		<default>0xEC000000</default>
++		<default>0xE0000000</default>
+ 	</attribute>
+ 	<attribute>
+ 		<id>SUPPORTS_DYNAMIC_MEM_VOLT</id>
+-- 
+2.31.1
+

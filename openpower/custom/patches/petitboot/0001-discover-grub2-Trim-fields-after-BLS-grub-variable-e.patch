@@ -1,0 +1,84 @@
+From bafc148691c8c234efb60ae3ec9026c688e884e6 Mon Sep 17 00:00:00 2001
+From: Reza Arbab <arbab@linux.ibm.com>
+Date: Wed, 1 Mar 2023 11:17:17 -0600
+Subject: [PATCH] discover/grub2: Trim fields after BLS grub variable expansion
+
+Consider this line in a BLS config:
+
+  initrd /initramfs-5.14.0-70.13.1.el9_0.ppc64le.img $tuned_initrd
+
+If $tuned_initrd is empty or unset, the initrd will be parsed as
+"/initramfs-5.14.0-70.13.1.el9_0.ppc64le.img ", with a trailing space.
+Since this file doesn't exist, trying to boot the entry will fail and
+report "Error loading initrd".
+
+Add a test case for this. To fix, trim leading and trailing blank space
+from fields after the grub variables have been expanded.
+
+Signed-off-by: Reza Arbab <arbab@linux.ibm.com>
+---
+ discover/grub2/blscfg.c                      | 21 ++++++++++++++++++++
+ test/parser/test-grub2-blscfg-opts-grubenv.c |  3 ++-
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/discover/grub2/blscfg.c b/discover/grub2/blscfg.c
+index d08f8f0996b6..39a72f6f7c4a 100644
+--- a/discover/grub2/blscfg.c
++++ b/discover/grub2/blscfg.c
+@@ -55,6 +55,25 @@ static char *field_append(struct bls_state *state, int type, char *buffer,
+ 	return buffer;
+ }
+ 
++static void field_trim(char *buffer)
++{
++        int i, j, end = 0;
++
++        if (!buffer)
++                return;
++
++        for (i = 0; isblank(buffer[i]); i++);
++
++        for (j = 0; buffer[i]; i++, j++) {
++                buffer[j] = buffer[i];
++
++                if (!isblank(buffer[j]))
++                        end = j + 1;
++        }
++
++        buffer[end] = '\0';
++}
++
+ static char *expand_field(struct bls_state *state, char *value)
+ {
+ 	char *buffer = NULL;
+@@ -93,6 +112,8 @@ static char *expand_field(struct bls_state *state, char *value)
+ 			return NULL;
+ 	}
+ 
++	field_trim(buffer);
++
+ 	return buffer;
+ }
+ 
+diff --git a/test/parser/test-grub2-blscfg-opts-grubenv.c b/test/parser/test-grub2-blscfg-opts-grubenv.c
+index 2dffd1b730c9..0e992b14f424 100644
+--- a/test/parser/test-grub2-blscfg-opts-grubenv.c
++++ b/test/parser/test-grub2-blscfg-opts-grubenv.c
+@@ -21,7 +21,7 @@ void run_test(struct parser_test *test)
+ 			     "/loader/entries/6c063c8e48904f2684abde8eea303f41-4.15.2-302.fc28.x86_64.conf",
+ 			     "title Fedora (4.15.2-302.fc28.x86_64) 28 (Twenty Eight)\n"
+ 			     "linux /vmlinuz-4.15.2-302.fc28.x86_64\n"
+-			     "initrd /initramfs-4.15.2-302.fc28.x86_64.img\n"
++			     "initrd $blank /initramfs-4.15.2-302.fc28.x86_64.img $blank\n"
+ 			     "options $kernelopts debug\n");
+ 
+ 	test_read_conf_embedded(test, "/boot/grub2/grub.cfg");
+@@ -33,4 +33,5 @@ void run_test(struct parser_test *test)
+ 	opt = get_boot_option(ctx, 0);
+ 
+ 	check_args(opt, "root=/dev/mapper/fedora-root ro rd.lvm.lv=fedora/root debug");
++	check_resolved_local_resource(opt->initrd, ctx->device, "/initramfs-4.15.2-302.fc28.x86_64.img");
+ }
+-- 
+2.31.1
+

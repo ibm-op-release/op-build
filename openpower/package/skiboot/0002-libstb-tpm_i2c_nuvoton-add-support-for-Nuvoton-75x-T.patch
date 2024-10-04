@@ -1,0 +1,97 @@
+From 36b9bee3c95dddb09dfa6d8edddea73b0d449abe Mon Sep 17 00:00:00 2001
+From: Eric Richter <erichte@linux.ibm.com>
+Date: Thu, 19 Sep 2024 13:13:36 -0500
+Subject: [PATCH 2/2] libstb/tpm_i2c_nuvoton: add support for Nuvoton 75x TPMs
+
+This patch adds the new expected values for the 75x chip to the hdat i2c
+devices table, and the requisite new constants to the Nuvoton driver as
+according to the TCG TPM I2C Interfact Specification for TPM 2.0
+Revision 1.0[1].
+
+[1] https://trustedcomputinggroup.org/resource/tcg-tpm-i2c-interface-specification/
+
+Signed-off-by: Eric Richter <erichte@linux.ibm.com>
+---
+ hdata/i2c.c                      |  1 +
+ libstb/drivers/tpm_i2c_nuvoton.c | 17 +++++++++++++++++
+ libstb/drivers/tpm_i2c_nuvoton.h |  1 +
+ libstb/tpm_chip.c                |  1 +
+ 4 files changed, 20 insertions(+)
+
+diff --git a/hdata/i2c.c b/hdata/i2c.c
+index 7d5d655a5..235aae8a8 100644
+--- a/hdata/i2c.c
++++ b/hdata/i2c.c
+@@ -156,6 +156,7 @@ static struct hdat_i2c_type hdat_i2c_devs[] = {
+ 	{ 0x11, "eeprom", "atmel,24c16" },
+ 	{ 0x12, "i2c", NULL },   /* NVDIA GPU */
+ 	{ 0x13, "i2c", "nxp,lpc11u35" },
++	{ 0x15, "tpm", "nuvoton,npct75x" },
+ };
+ 
+ struct hdat_i2c_info {
+diff --git a/libstb/drivers/tpm_i2c_nuvoton.c b/libstb/drivers/tpm_i2c_nuvoton.c
+index a01bdcb16..56c206610 100644
+--- a/libstb/drivers/tpm_i2c_nuvoton.c
++++ b/libstb/drivers/tpm_i2c_nuvoton.c
+@@ -49,6 +49,15 @@ static struct tpm_info tpm_nuvoton_650_info = {
+ 	.vid_did = 0x60,
+ };
+ 
++static struct tpm_info tpm_nuvoton_75x_info = {
++	.vendor_id = 0x5010FC00,
++	.sts = 0x18,
++	.burst_count = 0x19,
++	.data_fifo_w = 0x24,
++	.data_fifo_r = 0x24,
++	.vid_did = 0x48,
++};
++
+ 
+ static struct tpm_dev *tpm_device = NULL;
+ static struct tpm_info *tpm_info = NULL;
+@@ -627,6 +636,9 @@ static void tpm_i2c_nuvoton_probe(const char compat[], struct tpm_info *info)
+ 		/*
+ 		 * Tweak for linux. It doesn't have a driver compatible
+ 		 * with "nuvoton,npct650"
++		 *
++		 * Not necessary for 75x, as we use the compatible that
++		 * Linux expects.
+ 		 */
+ 		if (!dt_node_is_compatible(node, "nuvoton,npct601")) {
+ 			dt_check_del_prop(node, "compatible");
+@@ -646,3 +658,8 @@ void tpm_i2c_nuvoton_650_probe(void)
+ {
+ 	tpm_i2c_nuvoton_probe("nuvoton,npct650", &tpm_nuvoton_650_info);
+ }
++
++void tpm_i2c_nuvoton_75x_probe(void)
++{
++	tpm_i2c_nuvoton_probe("nuvoton,npct75x", &tpm_nuvoton_75x_info);
++}
+diff --git a/libstb/drivers/tpm_i2c_nuvoton.h b/libstb/drivers/tpm_i2c_nuvoton.h
+index c8b11744e..5570c0259 100644
+--- a/libstb/drivers/tpm_i2c_nuvoton.h
++++ b/libstb/drivers/tpm_i2c_nuvoton.h
+@@ -5,5 +5,6 @@
+ #define __TPM_I2C_NUVOTON_H
+ 
+ extern void tpm_i2c_nuvoton_650_probe(void);
++extern void tpm_i2c_nuvoton_75x_probe(void);
+ 
+ #endif /* __TPM_I2C_NUVOTON_H */
+diff --git a/libstb/tpm_chip.c b/libstb/tpm_chip.c
+index 44fa8cbca..b655cc92b 100644
+--- a/libstb/tpm_chip.c
++++ b/libstb/tpm_chip.c
+@@ -190,6 +190,7 @@ int tpm_init(void)
+ 
+ 	/* tpm drivers supported */
+ 	tpm_i2c_nuvoton_650_probe();
++	tpm_i2c_nuvoton_75x_probe();
+ 
+ 	if (list_empty(&tpm_list)) {
+ 		prlog(PR_INFO, "no compatible tpm device found!\n");
+-- 
+2.46.2
+

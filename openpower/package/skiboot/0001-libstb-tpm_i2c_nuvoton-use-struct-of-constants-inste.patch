@@ -1,8 +1,8 @@
-From 04a48be487a5d62d235fb315300c685a217d8b12 Mon Sep 17 00:00:00 2001
+From a6eedc320f0bb019da6d7312215de1bc3ba50a7a Mon Sep 17 00:00:00 2001
 From: Eric Richter <erichte@linux.ibm.com>
 Date: Thu, 19 Sep 2024 13:11:57 -0500
-Subject: [PATCH 1/2] libstb/tpm_i2c_nuvoton: use struct of constants instead
- of hardcoded macro constants
+Subject: [PATCH v2 1/2] libstb/tpm_i2c_nuvoton: use struct of constants
+ instead of hardcoded macro constants
 
 This driver was originally developed with only the npct650 chip in mind,
 which was developed before there was a TCG standard for a TPM on the i2c
@@ -17,13 +17,13 @@ runtime.
 
 Signed-off-by: Eric Richter <erichte@linux.ibm.com>
 ---
- libstb/drivers/tpm_i2c_nuvoton.c | 61 +++++++++++++++++++++-----------
+ libstb/drivers/tpm_i2c_nuvoton.c | 63 +++++++++++++++++++++-----------
  libstb/drivers/tpm_i2c_nuvoton.h |  2 +-
  libstb/tpm_chip.c                |  2 +-
- 3 files changed, 43 insertions(+), 22 deletions(-)
+ 3 files changed, 44 insertions(+), 23 deletions(-)
 
 diff --git a/libstb/drivers/tpm_i2c_nuvoton.c b/libstb/drivers/tpm_i2c_nuvoton.c
-index 0aa9711db..a01bdcb16 100644
+index 0aa9711db..a4612941c 100644
 --- a/libstb/drivers/tpm_i2c_nuvoton.c
 +++ b/libstb/drivers/tpm_i2c_nuvoton.c
 @@ -16,13 +16,6 @@
@@ -178,6 +178,15 @@ index 0aa9711db..a01bdcb16 100644
  			prlog(PR_ERR, "NUVOTON: expected vendor id mismatch\n");
  			goto disable;
  		}
+@@ -613,7 +628,7 @@ void tpm_i2c_nuvoton_probe(void)
+ 		 * Tweak for linux. It doesn't have a driver compatible
+ 		 * with "nuvoton,npct650"
+ 		 */
+-		if (!dt_node_is_compatible(node, "nuvoton,npct601")) {
++		if (dt_node_is_compatible(node, "nuvoton,npct650")) {
+ 			dt_check_del_prop(node, "compatible");
+ 			dt_add_property_strings(node, "compatible",
+ 						"nuvoton,npct650", "nuvoton,npct601");
 @@ -625,3 +640,9 @@ disable:
  	prlog(PR_NOTICE, "TPM: tpm node %p disabled\n", node);
  	free(tpm_device);

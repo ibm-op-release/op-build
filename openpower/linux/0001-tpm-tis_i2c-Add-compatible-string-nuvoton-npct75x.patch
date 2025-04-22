@@ -1,0 +1,42 @@
+From 6fa6b796e037a15b1c208b1158f801f9adcb1f2b Mon Sep 17 00:00:00 2001
+From: Lukas Wunner <lukas@wunner.de>
+Date: Sat, 13 Jan 2024 18:10:54 +0100
+Subject: [PATCH] tpm: tis_i2c: Add compatible string nuvoton,npct75x
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add "nuvoton,npct75x" as well as the fallback compatible string
+"tcg,tpm-tis-i2c" to the TPM TIS I²C driver.  They're used by:
+
+  arch/arm/boot/dts/aspeed/aspeed-bmc-ibm-bonnell.dts
+  arch/arm/boot/dts/aspeed/aspeed-bmc-ibm-everest.dts
+
+And by all accounts, NPCT75x is supported by the driver:
+
+  https://lore.kernel.org/all/60e23fd0f0ff4d1f8954034237ae8865@NTILML02.nuvoton.com/
+  https://lore.kernel.org/all/20220808220839.1006341-8-peter@pjd.dev/
+
+Signed-off-by: Lukas Wunner <lukas@wunner.de>
+Reviewed-by: Jarkko Sakkinen <jarkko@kernel.org>
+Signed-off-by: Jarkko Sakkinen <jarkko@kernel.org>
+---
+ drivers/char/tpm/tpm_tis_i2c.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/char/tpm/tpm_tis_i2c.c b/drivers/char/tpm/tpm_tis_i2c.c
+index a897402cc36a..9511c0d50185 100644
+--- a/drivers/char/tpm/tpm_tis_i2c.c
++++ b/drivers/char/tpm/tpm_tis_i2c.c
+@@ -383,6 +383,8 @@ MODULE_DEVICE_TABLE(i2c, tpm_tis_i2c_id);
+ #ifdef CONFIG_OF
+ static const struct of_device_id of_tis_i2c_match[] = {
+ 	{ .compatible = "infineon,slb9673", },
++	{ .compatible = "nuvoton,npct75x", },
++	{ .compatible = "tcg,tpm-tis-i2c", },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, of_tis_i2c_match);
+-- 
+2.43.5
+

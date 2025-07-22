@@ -1,0 +1,67 @@
+From e5d76ae8822cf52e4f56a507205d27e8d8b53ec8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig@baylibre.com>
+Date: Mon, 9 Sep 2024 20:26:47 +0300
+Subject: [PATCH] tpm: Drop explicit initialization of struct
+ i2c_device_id::driver_data to 0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These drivers don't use the driver_data member of struct i2c_device_id,
+so don't explicitly initialize this member.
+
+This prepares putting driver_data in an anonymous union which requires
+either no initialization or named designators. But it's also a nice
+cleanup on its own.
+
+Signed-off-by: Uwe Kleine-König <u.kleine-koenig@baylibre.com>
+Reviewed-by: Jarkko Sakkinen <jarkko@kernel.org>
+Signed-off-by: Jarkko Sakkinen <jarkko@kernel.org>
+---
+ drivers/char/tpm/st33zp24/i2c.c  | 2 +-
+ drivers/char/tpm/tpm_i2c_atmel.c | 2 +-
+ drivers/char/tpm/tpm_tis_i2c.c   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/char/tpm/st33zp24/i2c.c b/drivers/char/tpm/st33zp24/i2c.c
+index 45ca33b3dcb2..81348487c125 100644
+--- a/drivers/char/tpm/st33zp24/i2c.c
++++ b/drivers/char/tpm/st33zp24/i2c.c
+@@ -133,7 +133,7 @@ static void st33zp24_i2c_remove(struct i2c_client *client)
+ }
+ 
+ static const struct i2c_device_id st33zp24_i2c_id[] = {
+-	{TPM_ST33_I2C, 0},
++	{ TPM_ST33_I2C },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, st33zp24_i2c_id);
+diff --git a/drivers/char/tpm/tpm_i2c_atmel.c b/drivers/char/tpm/tpm_i2c_atmel.c
+index 301a95b3734f..d1d27fdfe523 100644
+--- a/drivers/char/tpm/tpm_i2c_atmel.c
++++ b/drivers/char/tpm/tpm_i2c_atmel.c
+@@ -186,7 +186,7 @@ static void i2c_atmel_remove(struct i2c_client *client)
+ }
+ 
+ static const struct i2c_device_id i2c_atmel_id[] = {
+-	{I2C_DRIVER_NAME, 0},
++	{ I2C_DRIVER_NAME },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, i2c_atmel_id);
+diff --git a/drivers/char/tpm/tpm_tis_i2c.c b/drivers/char/tpm/tpm_tis_i2c.c
+index 9511c0d50185..6cd07dd34507 100644
+--- a/drivers/char/tpm/tpm_tis_i2c.c
++++ b/drivers/char/tpm/tpm_tis_i2c.c
+@@ -375,7 +375,7 @@ static void tpm_tis_i2c_remove(struct i2c_client *client)
+ }
+ 
+ static const struct i2c_device_id tpm_tis_i2c_id[] = {
+-	{ "tpm_tis_i2c", 0 },
++	{ "tpm_tis_i2c" },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, tpm_tis_i2c_id);
+-- 
+2.43.5
+

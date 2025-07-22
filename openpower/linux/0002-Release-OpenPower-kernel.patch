@@ -13,11 +13,11 @@ index 695f8e739a91..f2280292b96e 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -2,7 +2,7 @@
- VERSION = 5
- PATCHLEVEL = 10
- SUBLEVEL = 108
+ VERSION = 6
+ PATCHLEVEL = 1
+ SUBLEVEL = 133
 -EXTRAVERSION =
 +EXTRAVERSION = -openpower1
- NAME = Dare mighty things
+ NAME = Curry Ramen
  
  # *DOCUMENTATION*
